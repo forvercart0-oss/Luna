@@ -60,12 +60,15 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             rust_target: x86_64-unknown-linux-gnu
+            cli_name: luna
           - os: macos-latest
             target: aarch64-apple-darwin
             rust_target: aarch64-apple-darwin
+            cli_name: luna
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             rust_target: x86_64-pc-windows-msvc
+            cli_name: luna.exe
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -95,16 +98,25 @@ jobs:
         with:
           tauriScript: pnpm tauri
           args: --target ${{ matrix.rust_target }}
+      - name: Build CLI
+        run: cargo build --release --bin luna --target ${{ matrix.rust_target }}
+        working-directory: src-tauri
+      - name: Collect Artifacts
+        shell: bash
+        run: |
+          mkdir -p collected
+          # Tauri bundle artifacts
+          find src-tauri/target/${{ matrix.rust_target }}/release/bundle \
+            -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.app.tar.gz" \) \
+            -exec cp {} collected/ \;
+          # CLI binary
+          cp src-tauri/target/${{ matrix.rust_target }}/release/${{ matrix.cli_name }} collected/
+          ls -la collected/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: luna-${{ matrix.target }}
-          path: |
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*.msi
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*.exe
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*.AppImage
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*.deb
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*.app.tar.gz
+          path: collected/*
           retention-days: 30
 
   release:
@@ -119,10 +131,13 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: List Artifacts
+        run: find artifacts -type f | sort
       - name: Generate Checksums
         run: |
           cd artifacts
-          find . -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.app.tar.gz" \) -exec sha256sum {} \; > ../checksums.txt
+          find . -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.app.tar.gz" -o -name "luna" -o -name "luna.exe" \) -exec sha256sum {} \; > ../checksums.txt
+          echo "--- Checksums ---"
           cat ../checksums.txt
       - name: Extract Version
         id: version
@@ -133,26 +148,34 @@ jobs:
           name: LUNA v${{ steps.version.outputs.version }}
           body: |
             ## LUNA v${{ steps.version.outputs.version }}
-            
+
             ### Downloads
-            
-            | Platform | File |
-            |----------|------|
-            | Windows x64 | `.msi` installer |
-            | Linux x64 | `.AppImage` (portable) or `.deb` (Debian/Ubuntu) |
-            | macOS ARM64 | `.app.tar.gz` (Apple Silicon) |
-            | macOS x64 | `.app.tar.gz` (Intel) |
-            
+
+            | Platform | Desktop App | CLI |
+            |----------|-------------|-----|
+            | Windows x64 | `.msi` installer | `luna.exe` |
+            | Linux x64 | `.AppImage` or `.deb` | `luna` |
+            | macOS ARM64 | `.app.tar.gz` | `luna` |
+
+            ### CLI Usage
+
+            ```bash
+            luna version    # Show version
+            luna doctor     # Run diagnostics
+            luna update     # Check and install updates
+            ```
+
             ### Verification
-            
+
             Checksums are available in `checksums.txt`.
-            
+
             ### Installation
-            
+
             1. Download the appropriate file for your platform
             2. Run the installer or extract the archive
             3. Launch LUNA
-            
+            4. (Optional) Install the CLI: copy `luna` to a directory in your PATH
+
             See [README.md](https://github.com/forvercart0-oss/Luna#readme) for details.
           files: |
             artifacts/**/*.msi
@@ -160,56 +183,58 @@ jobs:
             artifacts/**/*.AppImage
             artifacts/**/*.deb
             artifacts/**/*.app.tar.gz
+            artifacts/**/luna
+            artifacts/**/luna.exe
             checksums.txt
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Update latest.json
+      - name: Generate Update Manifest
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
-          # Get artifact URLs and checksums
-          WINDOWS_URL=$(grep -oP '[^\s]+\.msi' checksums.txt | head -1 || echo "")
-          LINUX_URL=$(grep -oP '[^\s]+\.AppImage' checksums.txt | head -1 || echo "")
-          MACOS_ARM_URL=$(grep -oP '[^\s]+aarch64\.app\.tar\.gz' checksums.txt | head -1 || echo "")
-          MACOS_X64_URL=$(grep -oP '[^\s]+x64\.app\.tar\.gz' checksums.txt | head -1 || echo "")
-          
-          # Get checksums
-          WINDOWS_SHA=$(grep '\.msi' checksums.txt | awk '{print $1}' || echo "")
-          LINUX_SHA=$(grep '\.AppImage' checksums.txt | awk '{print $1}' || echo "")
-          MACOS_ARM_SHA=$(grep 'aarch64\.app\.tar\.gz' checksums.txt | awk '{print $1}' || echo "")
-          MACOS_X64_SHA=$(grep 'x64\.app\.tar\.gz' checksums.txt | awk '{print $1}' || echo "")
-          
-          # Create latest.json
+
+          # Extract checksums for each platform
+          WINDOWS_SHA=$(grep '\.msi' checksums.txt | awk '{print $1}' | head -1)
+          WINDOWS_NAME=$(grep '\.msi' checksums.txt | awk '{print $2}' | head -1 | xargs basename)
+          LINUX_SHA=$(grep '\.AppImage' checksums.txt | awk '{print $1}' | head -1)
+          LINUX_NAME=$(grep '\.AppImage' checksums.txt | awk '{print $2}' | head -1 | xargs basename)
+          MACOS_ARM_SHA=$(grep 'aarch64.*\.app\.tar\.gz' checksums.txt | awk '{print $1}' | head -1)
+          MACOS_ARM_NAME=$(grep 'aarch64.*\.app\.tar\.gz' checksums.txt | awk '{print $2}' | head -1 | xargs basename)
+          MACOS_X64_SHA=$(grep 'x64.*\.app\.tar\.gz' checksums.txt | awk '{print $1}' | head -1)
+          MACOS_X64_NAME=$(grep 'x64.*\.app\.tar\.gz' checksums.txt | awk '{print $2}' | head -1 | xargs basename)
+
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}"
+
           cat > latest.json << EOF
           {
-            "version": "$VERSION",
-            "notes": "LUNA v$VERSION",
+            "version": "${VERSION}",
+            "notes": "LUNA v${VERSION}",
             "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "platforms": {
               "windows-x86_64": {
-                "url": "https://github.com/forvercart0-oss/Luna/releases/download/v$VERSION/$(basename "$WINDOWS_URL")",
-                "sha256": "$WINDOWS_SHA"
+                "url": "${BASE_URL}/${WINDOWS_NAME}",
+                "sha256": "${WINDOWS_SHA}"
               },
               "linux-x86_64": {
-                "url": "https://github.com/forvercart0-oss/Luna/releases/download/v$VERSION/$(basename "$LINUX_URL")",
-                "sha256": "$LINUX_SHA"
+                "url": "${BASE_URL}/${LINUX_NAME}",
+                "sha256": "${LINUX_SHA}"
               },
               "darwin-x86_64": {
-                "url": "https://github.com/forvercart0-oss/Luna/releases/download/v$VERSION/$(basename "$MACOS_X64_URL")",
-                "sha256": "$MACOS_X64_SHA"
+                "url": "${BASE_URL}/${MACOS_X64_NAME}",
+                "sha256": "${MACOS_X64_SHA}"
               },
               "darwin-aarch64": {
-                "url": "https://github.com/forvercart0-oss/Luna/releases/download/v$VERSION/$(basename "$MACOS_ARM_URL")",
-                "sha256": "$MACOS_ARM_SHA"
+                "url": "${BASE_URL}/${MACOS_ARM_NAME}",
+                "sha256": "${MACOS_ARM_SHA}"
               }
             }
           }
           EOF
-          
+
+          echo "--- Update Manifest ---"
           cat latest.json
-      - name: Upload latest.json to Release
+      - name: Upload Update Manifest
         uses: softprops/action-gh-release@v2
         with:
           files: latest.json

@@ -85,18 +85,32 @@ Download the latest release from [GitHub Releases](https://github.com/forvercart
 
 ### CLI Installation
 
-The `luna-cli` binary provides command-line utilities:
+The `luna` CLI is included in the release artifacts. Copy it to a directory in your `PATH`:
 
 ```bash
-# Check version
-luna-cli version
+# Linux/macOS: copy to a PATH directory
+cp luna /usr/local/bin/
 
-# Run diagnostics
-luna-cli doctor
-
-# Check for updates
-luna-cli update
+# Or add to your personal bin directory
+mkdir -p ~/.local/bin
+cp luna ~/.local/bin/
 ```
+
+### CLI Commands
+
+```bash
+luna version    # Show version and platform info
+luna doctor     # Run diagnostic checks
+luna update     # Check for and install updates
+```
+
+### Updating
+
+```bash
+luna update
+```
+
+This fetches the latest release from GitHub, verifies the checksum, and installs the update. Your data (conversations, memories, settings) is never affected.
 
 ## Development
 
@@ -174,7 +188,7 @@ LUNA/
 ├── src-tauri/                    # Backend (Rust + Tauri)
 │   ├── src/
 │   │   ├── main.rs               # Tauri app setup, command registration
-│   │   ├── cli.rs                # CLI binary (luna-cli)
+│   │   ├── cli.rs                # CLI binary (luna)
 │   │   ├── db.rs                 # SQLite wrapper (WAL mode)
 │   │   ├── settings.rs           # Settings manager
 │   │   ├── models.rs             # Model/provider/conversation managers
@@ -465,18 +479,11 @@ See [SECURITY.md](SECURITY.md) for details.
 
 ## Updating
 
-### CLI Update Check
-
 ```bash
-luna-cli update
+luna update
 ```
 
-This checks GitHub Releases for the latest version and displays download instructions.
-
-### Manual Update
-
-1. Download the latest release from [GitHub Releases](https://github.com/forvercart0-oss/Luna/releases)
-2. Install the new version (your data is preserved)
+This fetches the latest release from GitHub, downloads the correct artifact for your platform, verifies the SHA-256 checksum, and installs the update. Your data is preserved.
 
 ### User Data
 
@@ -491,24 +498,24 @@ Updates never delete:
 
 ## CLI Reference
 
-### `luna-cli version`
+### `luna version`
 
 Display version and installation information.
 
-### `luna-cli doctor`
+### `luna doctor`
 
 Run diagnostic checks:
-- Installation directory
+- CLI binary
 - Data directory and database
-- Rust toolchain
-- Node.js and pnpm
-- Tauri CLI
-- Network connectivity
-- Voice services
+- OpenRouter credentials
+- GitHub connectivity
+- OpenRouter API
+- Update manifest
+- Voice services (optional)
 
-### `luna-cli update`
+### `luna update`
 
-Check for updates from GitHub Releases.
+Check for updates, download the correct artifact, verify checksum, and install.
 
 ## License
 

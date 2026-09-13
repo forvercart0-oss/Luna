@@ -71,9 +71,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Permission management
 
 #### CLI
-- `luna-cli version` — Display version information
-- `luna-cli doctor` — Run diagnostic checks
-- `luna-cli update` — Check for updates from GitHub Releases
+- `luna version` — Display version information
+- `luna doctor` — Run diagnostic checks
+- `luna update` — Check for and install updates from GitHub Releases
 
 #### Branding
 - LUNA desktop icon (lunar crescent + AI core design)
