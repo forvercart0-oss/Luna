@@ -1,22 +1,24 @@
 import { useState } from "react";
 import { useCredentialStore } from "../../lib/stores";
+import { OptionSelect } from "../ui/OptionSelect";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 const CREDENTIAL_TYPES = [
-  { value: "api_key", label: "API Key" },
-  { value: "bearer_token", label: "Bearer Token" },
-  { value: "oauth", label: "OAuth Token" },
-  { value: "basic", label: "Basic Auth" },
+  { value: "api_key", label: "API Key", icon: "🔑" },
+  { value: "bearer_token", label: "Bearer Token", icon: "🎫" },
+  { value: "oauth", label: "OAuth Token", icon: "🔓" },
+  { value: "basic", label: "Basic Auth", icon: "👤" },
 ];
 
 const PROVIDERS = [
-  { value: "openrouter", label: "OpenRouter" },
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "google", label: "Google" },
-  { value: "github", label: "GitHub" },
-  { value: "weather", label: "Weather API" },
-  { value: "maps", label: "Maps API" },
-  { value: "custom", label: "Custom" },
+  { value: "openrouter", label: "OpenRouter", icon: "🔀" },
+  { value: "openai", label: "OpenAI", icon: "🤖" },
+  { value: "anthropic", label: "Anthropic", icon: "🧠" },
+  { value: "google", label: "Google", icon: "🔍" },
+  { value: "github", label: "GitHub", icon: "🐙" },
+  { value: "weather", label: "Weather API", icon: "🌤" },
+  { value: "maps", label: "Maps API", icon: "🗺" },
+  { value: "custom", label: "Custom", icon: "⚙️" },
 ];
 
 export function ApiCredentialsPage() {
@@ -28,6 +30,8 @@ export function ApiCredentialsPage() {
     success: boolean;
     message: string;
   } | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({
     provider_id: "openrouter",
     credential_type: "api_key",
@@ -60,9 +64,11 @@ export function ApiCredentialsPage() {
   };
 
   const handleTest = async (id: string) => {
+    setTestingId(id);
+    setTestResult(null);
     const result = await test(id);
     setTestResult({ id, ...result });
-    setTimeout(() => setTestResult(null), 5000);
+    setTestingId(null);
   };
 
   return (
@@ -138,12 +144,13 @@ export function ApiCredentialsPage() {
                 <button
                   className="btn btn-sm"
                   onClick={() => handleTest(cred.id)}
+                  disabled={testingId === cred.id}
                 >
-                  Test
+                  {testingId === cred.id ? "Testing..." : "Test"}
                 </button>
                 <button
                   className="btn btn-danger btn-sm"
-                  onClick={() => remove(cred.id)}
+                  onClick={() => setDeleteId(cred.id)}
                 >
                   Delete
                 </button>
@@ -162,36 +169,20 @@ export function ApiCredentialsPage() {
                 {editing ? "Edit Credential" : "Add Credential"}
               </div>
               <div className="form-group">
-                <label className="form-label">Provider</label>
-                <select
-                  className="form-select"
+                <OptionSelect
+                  label="Provider"
+                  options={PROVIDERS}
                   value={form.provider_id}
-                  onChange={(e) =>
-                    setForm({ ...form, provider_id: e.target.value })
-                  }
-                >
-                  {PROVIDERS.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setForm({ ...form, provider_id: v })}
+                />
               </div>
               <div className="form-group">
-                <label className="form-label">Credential Type</label>
-                <select
-                  className="form-select"
+                <OptionSelect
+                  label="Credential Type"
+                  options={CREDENTIAL_TYPES}
                   value={form.credential_type}
-                  onChange={(e) =>
-                    setForm({ ...form, credential_type: e.target.value })
-                  }
-                >
-                  {CREDENTIAL_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setForm({ ...form, credential_type: v })}
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Key Name / Identifier</label>
@@ -242,6 +233,21 @@ export function ApiCredentialsPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete Credential"
+        message="This will permanently delete this credential. This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => {
+          if (deleteId) {
+            await remove(deleteId);
+            setDeleteId(null);
+          }
+        }}
+        onCancel={() => setDeleteId(null)}
+      />
     </>
   );
 }

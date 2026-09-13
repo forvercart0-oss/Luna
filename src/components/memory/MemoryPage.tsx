@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { useMemoryStore } from "../../lib/stores";
+import { OptionGrid } from "../ui/OptionSelect";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 const MEMORY_TYPES = [
-  "preference",
-  "fact",
-  "project",
-  "instruction",
-  "relationship",
-  "task",
-  "technical",
-  "other",
+  { value: "preference", label: "Preference", icon: "⭐" },
+  { value: "fact", label: "Fact", icon: "📌" },
+  { value: "project", label: "Project", icon: "📁" },
+  { value: "instruction", label: "Instruction", icon: "📋" },
+  { value: "relationship", label: "Relationship", icon: "👤" },
+  { value: "task", label: "Task", icon: "✅" },
+  { value: "technical", label: "Technical", icon: "🔧" },
+  { value: "other", label: "Other", icon: "📝" },
 ];
 
 export function MemoryPage() {
@@ -18,6 +20,7 @@ export function MemoryPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<typeof memories | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({
     type: "fact",
     content: "",
@@ -149,7 +152,7 @@ export function MemoryPage() {
                 <button className="btn btn-sm" onClick={() => startEdit(m.id)}>
                   Edit
                 </button>
-                <button className="btn btn-danger btn-sm" onClick={() => remove(m.id)}>
+                <button className="btn btn-danger btn-sm" onClick={() => setDeleteId(m.id)}>
                   Delete
                 </button>
               </div>
@@ -175,18 +178,12 @@ export function MemoryPage() {
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-title">{editing ? "Edit Memory" : "Add Memory"}</div>
               <div className="form-group">
-                <label className="form-label">Type</label>
-                <select
-                  className="form-select"
+                <OptionGrid
+                  label="Type"
+                  options={MEMORY_TYPES}
                   value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value })}
-                >
-                  {MEMORY_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setForm({ ...form, type: v })}
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Content</label>
@@ -241,6 +238,21 @@ export function MemoryPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete Memory"
+        message="This will permanently delete this memory entry. This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => {
+          if (deleteId) {
+            await remove(deleteId);
+            setDeleteId(null);
+          }
+        }}
+        onCancel={() => setDeleteId(null)}
+      />
     </>
   );
 }

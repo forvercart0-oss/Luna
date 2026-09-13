@@ -69,14 +69,15 @@ function SystemStats() {
   );
 }
 
-function MemoryPanel() {
+function MemoryPanel({ onNavigate }: { onNavigate: (page: Page) => void }) {
   const { memories } = useMemoryStore();
   const recent = memories.slice(0, 3);
 
   return (
     <div className="panel-section">
-      <div className="panel-header">
+      <div className="panel-header" onClick={() => onNavigate("memory")} style={{ cursor: "pointer" }}>
         <div className="panel-title">MEMORY</div>
+        <span className="panel-toggle">View all →</span>
       </div>
       {recent.length === 0 ? (
         <div style={{ fontSize: 12, color: "var(--text-muted)" }}>No memories yet</div>
@@ -92,7 +93,7 @@ function MemoryPanel() {
   );
 }
 
-function ActivityTimeline() {
+function ActivityTimeline({ onNavigate }: { onNavigate: (page: Page) => void }) {
   const { events } = useActivityStore();
   const recent = events.slice(0, 8);
 
@@ -108,8 +109,9 @@ function ActivityTimeline() {
 
   return (
     <div className="panel-section">
-      <div className="panel-header">
+      <div className="panel-header" onClick={() => onNavigate("activity")} style={{ cursor: "pointer" }}>
         <div className="panel-title">ACTIVITY</div>
+        <span className="panel-toggle">View all →</span>
       </div>
       <div className="activity-list">
         {recent.length === 0 && (
@@ -135,7 +137,7 @@ function ActivityTimeline() {
   );
 }
 
-export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
+export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const {
     activeConversation,
     messages,
@@ -199,7 +201,7 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
       {/* Left Panel */}
       <div className="left-panel">
         <SystemStats />
-        <MemoryPanel />
+        <MemoryPanel onNavigate={onNavigate} />
       </div>
 
       {/* Center: Orb + Chat */}
@@ -342,7 +344,7 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
 
       {/* Right Panel */}
       <div className="right-panel">
-        <ActivityTimeline />
+        <ActivityTimeline onNavigate={onNavigate} />
       </div>
     </div>
   );

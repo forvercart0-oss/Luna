@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useModelStore } from "../../lib/stores";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 export function ModelsPage() {
-  const { profiles, create, update, remove, setActive } = useModelStore();
+  const { profiles, create, update, remove, setActive, duplicate } = useModelStore();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     provider: "openrouter",
@@ -103,6 +105,11 @@ export function ModelsPage() {
                       Active
                     </span>
                   )}
+                  {!p.enabled && (
+                    <span className="badge badge-muted" style={{ marginLeft: 8 }}>
+                      Disabled
+                    </span>
+                  )}
                 </div>
                 <div className="card-subtitle">
                   {p.model_id} · temp={p.temperature} · max_tokens={p.max_tokens}
@@ -117,7 +124,10 @@ export function ModelsPage() {
                 <button className="btn btn-sm" onClick={() => startEdit(p.id)}>
                   Edit
                 </button>
-                <button className="btn btn-danger btn-sm" onClick={() => remove(p.id)}>
+                <button className="btn btn-sm" onClick={() => duplicate(p.id)}>
+                  Duplicate
+                </button>
+                <button className="btn btn-danger btn-sm" onClick={() => setDeleteId(p.id)}>
                   Delete
                 </button>
               </div>
@@ -209,6 +219,21 @@ export function ModelsPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete Model Profile"
+        message="This will permanently delete this model profile. This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => {
+          if (deleteId) {
+            await remove(deleteId);
+            setDeleteId(null);
+          }
+        }}
+        onCancel={() => setDeleteId(null)}
+      />
     </>
   );
 }

@@ -1466,3 +1466,381 @@ textarea.form-input {
 .table tr:hover td {
   background: var(--bg-hover);
 }
+
+/* ── Option Select (Popover Dropdown) ── */
+
+.option-select-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.option-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition);
+  width: 100%;
+  text-align: left;
+}
+
+.option-select-trigger:hover {
+  border-color: var(--border-light);
+}
+
+.option-select-trigger.open {
+  border-color: var(--accent);
+}
+
+.option-select-trigger.compact {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.option-select-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.option-select-icon {
+  flex-shrink: 0;
+}
+
+.option-select-placeholder {
+  color: var(--text-muted);
+}
+
+.option-select-chevron {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform var(--transition);
+  flex-shrink: 0;
+}
+
+.option-select-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.option-select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  max-height: 240px;
+  overflow-y: auto;
+  animation: fadeIn 0.1s ease;
+  padding: 4px;
+}
+
+.option-select-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background var(--transition);
+}
+
+.option-select-item:hover {
+  background: var(--bg-hover);
+}
+
+.option-select-item.selected {
+  background: var(--accent-dim);
+}
+
+.option-select-item-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.option-select-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-select-item-label {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.option-select-item-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.option-select-check {
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── Option Grid (Card Selection) ── */
+
+.option-grid-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.option-grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.option-grid-item:hover {
+  border-color: var(--border-light);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.option-grid-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.option-grid-icon {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.option-grid-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.option-grid-check {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Confirm Dialog ── */
+
+.confirm-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+/* ── Message Actions ── */
+
+.message-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.message:hover .message-actions {
+  opacity: 1;
+}
+
+.msg-action-btn {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.msg-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* ── Conversation Search ── */
+
+.conv-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.conv-search input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.conv-search input:focus {
+  border-color: var(--accent);
+}
+
+.conv-search input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ── Model Selector Popover ── */
+
+.model-popover {
+  position: relative;
+  display: inline-block;
+}
+
+.model-popover-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.model-popover-trigger:hover {
+  border-color: var(--border-light);
+  background: var(--bg-hover);
+}
+
+.model-popover-dropdown {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 260px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  max-height: 300px;
+  overflow-y: auto;
+  animation: fadeIn 0.1s ease;
+  padding: 4px;
+}
+
+.model-popover-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text-primary);
+}
+
+.model-popover-item:hover {
+  background: var(--bg-hover);
+}
+
+.model-popover-item.selected {
+  background: var(--accent-dim);
+}
+
+.model-popover-item-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.model-popover-item-id {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Search Filter Chips ── */
+
+.filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.filter-chip:hover {
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+.filter-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}

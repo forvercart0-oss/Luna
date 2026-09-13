@@ -66,6 +66,7 @@ interface ProviderState {
   add: (name: string, apiKey: string, baseUrl?: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   setActive: (id: string) => Promise<void>;
+  test: (id: string) => Promise<{ success: boolean; message: string }>;
 }
 
 export const useProviderStore = create<ProviderState>((set, get) => ({
@@ -113,6 +114,19 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
       console.error("Failed to set active provider:", e);
     }
   },
+  test: async (id) => {
+    try {
+      const account = get().accounts.find((a) => a.id === id);
+      if (!account) return { success: false, message: "Account not found" };
+      const result = await invoke<{ success: boolean; message: string }>("test_credential", {
+        id,
+        testUrl: null,
+      });
+      return result;
+    } catch (e) {
+      return { success: false, message: String(e) };
+    }
+  },
 }));
 
 // ── Model Store ──
@@ -133,6 +147,8 @@ interface ModelState {
   update: (id: string, changes: Partial<ModelProfile>) => Promise<void>;
   remove: (id: string) => Promise<void>;
   setActive: (id: string) => Promise<void>;
+  duplicate: (id: string) => Promise<void>;
+  toggleEnabled: (id: string, enabled: boolean) => Promise<void>;
 }
 
 export const useModelStore = create<ModelState>((set, get) => ({
@@ -199,6 +215,40 @@ export const useModelStore = create<ModelState>((set, get) => ({
       console.error("Failed to set active model:", e);
     }
   },
+  duplicate: async (id) => {
+    const profile = get().profiles.find((p) => p.id === id);
+    if (!profile) return;
+    try {
+      await invoke("create_model_profile", {
+        name: `${profile.name} (Copy)`,
+        provider: profile.provider,
+        modelId: profile.model_id,
+        systemPrompt: profile.system_prompt,
+        temperature: profile.temperature,
+        maxTokens: profile.max_tokens,
+      });
+      await get().load();
+    } catch (e) {
+      console.error("Failed to duplicate model:", e);
+    }
+  },
+  toggleEnabled: async (id, enabled) => {
+    try {
+      await invoke("update_model_profile", {
+        id,
+        name: null,
+        provider: null,
+        modelId: null,
+        systemPrompt: null,
+        temperature: null,
+        maxTokens: null,
+        enabled,
+      });
+      await get().load();
+    } catch (e) {
+      console.error("Failed to toggle model:", e);
+    }
+  },
 }));
 
 // ── Conversation Store (with streaming support) ──
@@ -219,6 +269,8 @@ interface ConversationState {
   sendMessage: (content: string, modelProfileId?: string) => Promise<void>;
   cancelGeneration: () => Promise<void>;
   cleanup: () => void;
+  searchConversations: (query: string) => Conversation[];
+  retryMessage: (messageId: string) => Promise<void>;
 }
 
 export const useConversationStore = create<ConversationState>((set, get) => {
@@ -373,6 +425,21 @@ export const useConversationStore = create<ConversationState>((set, get) => {
       unlistenMessage?.();
       unlistenStream = null;
       unlistenMessage = null;
+    },
+    searchConversations: (query) => {
+      const q = query.toLowerCase();
+      return get().conversations.filter(
+        (c) => c.title.toLowerCase().includes(q)
+      );
+    },
+    retryMessage: async (messageId) => {
+      const { messages, activeConversation } = get();
+      if (!activeConversation) return;
+      const lastUserMsg = [...messages]
+        .reverse()
+        .find((m) => m.role === "user" && m.id === messageId);
+      if (!lastUserMsg) return;
+      await get().sendMessage(lastUserMsg.content, lastUserMsg.model_profile_id || undefined);
     },
   };
 });

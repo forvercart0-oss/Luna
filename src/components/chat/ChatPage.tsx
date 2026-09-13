@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -7,6 +7,7 @@ import {
   useModelStore,
   useAssistantStore,
 } from "../../lib/stores";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import type { Message } from "../../lib/types";
 
 function ToolExecutionCard({ detail, status }: { detail: string; status: string }) {
@@ -20,11 +21,49 @@ function ToolExecutionCard({ detail, status }: { detail: string; status: string 
   );
 }
 
-function MessageBubble({ msg, profiles }: { msg: Message; profiles: { id: string; name: string }[] }) {
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
+  return (
+    <button className="msg-action-btn" onClick={handleCopy} title="Copy message">
+      {copied ? "✓ Copied" : "⧉ Copy"}
+    </button>
+  );
+}
+
+function MessageBubble({
+  msg,
+  profiles,
+  onRetry,
+}: {
+  msg: Message;
+  profiles: { id: string; name: string }[];
+  onRetry?: (messageId: string) => void;
+}) {
   if (msg.role === "user") {
     return (
       <div className="message message-user">
         <div className="message-bubble">{msg.content}</div>
+        <div className="message-actions">
+          <CopyButton text={msg.content} />
+        </div>
       </div>
     );
   }
@@ -80,7 +119,21 @@ function MessageBubble({ msg, profiles }: { msg: Message; profiles: { id: string
               {profiles.find((p) => p.id === msg.model_profile_id)?.name || "Model"}
             </span>
           )}
-          {new Date(msg.created_at).toLocaleTimeString()}
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            {new Date(msg.created_at).toLocaleTimeString()}
+          </span>
+        </div>
+        <div className="message-actions">
+          <CopyButton text={msg.content} />
+          {msg.status === "complete" && onRetry && (
+            <button
+              className="msg-action-btn"
+              onClick={() => onRetry(msg.id)}
+              title="Retry from this message"
+            >
+              ↻ Retry
+            </button>
+          )}
         </div>
       </div>
     );
@@ -97,6 +150,17 @@ function MessageBubble({ msg, profiles }: { msg: Message; profiles: { id: string
   return (
     <div className="message message-error">
       <div className="message-bubble">{msg.content}</div>
+      {onRetry && (
+        <div className="message-actions">
+          <button
+            className="msg-action-btn"
+            onClick={() => onRetry(msg.id)}
+            title="Retry"
+          >
+            ↻ Retry
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -114,6 +178,8 @@ export function ChatPage() {
     setActive,
     sendMessage,
     cancelGeneration,
+    searchConversations,
+    retryMessage,
   } = useConversationStore();
 
   const { profiles } = useModelStore();
@@ -122,8 +188,12 @@ export function ChatPage() {
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const modelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -133,6 +203,17 @@ export function ChatPage() {
     const active = profiles.find((p) => p.is_active);
     if (active) setSelectedModel(active.id);
   }, [profiles]);
+
+  useEffect(() => {
+    if (!modelSelectorOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) {
+        setModelSelectorOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [modelSelectorOpen]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -180,6 +261,20 @@ export function ChatPage() {
     setRenameValue("");
   };
 
+  const handleRetry = useCallback(
+    async (messageId: string) => {
+      clearToolExecutions();
+      await retryMessage(messageId);
+    },
+    [clearToolExecutions, retryMessage]
+  );
+
+  const filteredConversations = searchQuery
+    ? searchConversations(searchQuery)
+    : conversations;
+
+  const activeModelName = profiles.find((p) => p.id === selectedModel)?.name || "Active model";
+
   return (
     <div className="chat-layout">
       <div className="conversation-sidebar">
@@ -191,13 +286,22 @@ export function ChatPage() {
             + New
           </button>
         </div>
+        <div className="conv-search">
+          <input
+            placeholder="Search conversations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
         <div className="conv-list">
-          {conversations.length === 0 && (
+          {filteredConversations.length === 0 && (
             <div className="empty-state" style={{ padding: 24 }}>
-              <p className="empty-text">No conversations yet</p>
+              <p className="empty-text">
+                {searchQuery ? "No matching conversations" : "No conversations yet"}
+              </p>
             </div>
           )}
-          {conversations.map((conv) => (
+          {filteredConversations.map((conv) => (
             <div
               key={conv.id}
               className={`conv-item ${activeConversation === conv.id ? "active" : ""}`}
@@ -237,7 +341,7 @@ export function ChatPage() {
                   className="conv-action-btn danger"
                   onClick={(e) => {
                     e.stopPropagation();
-                    remove(conv.id);
+                    setDeleteId(conv.id);
                   }}
                   title="Delete"
                 >
@@ -270,7 +374,12 @@ export function ChatPage() {
                 </div>
               )}
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} profiles={profiles} />
+                <MessageBubble
+                  key={msg.id}
+                  msg={msg}
+                  profiles={profiles}
+                  onRetry={handleRetry}
+                />
               ))}
               {toolExecutions.map((te) => (
                 <ToolExecutionCard
@@ -329,20 +438,54 @@ export function ChatPage() {
 
             <div className="input-area">
               <div className="input-wrapper">
-                <select
-                  className="model-selector"
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                >
-                  <option value="">Active model</option>
-                  {profiles
-                    .filter((p) => p.enabled)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — {p.model_id}
-                      </option>
-                    ))}
-                </select>
+                <div className="model-popover" ref={modelRef}>
+                  <button
+                    className="model-popover-trigger"
+                    onClick={() => setModelSelectorOpen(!modelSelectorOpen)}
+                    type="button"
+                  >
+                    <span>{activeModelName}</span>
+                    <span style={{ fontSize: 10, color: "var(--text-muted)" }}>▾</span>
+                  </button>
+                  {modelSelectorOpen && (
+                    <div className="model-popover-dropdown">
+                      <button
+                        className={`model-popover-item ${!selectedModel ? "selected" : ""}`}
+                        onClick={() => {
+                          setSelectedModel("");
+                          setModelSelectorOpen(false);
+                        }}
+                        type="button"
+                      >
+                        <div>
+                          <div className="model-popover-item-name">Active model</div>
+                          <div className="model-popover-item-id">Use the default active profile</div>
+                        </div>
+                      </button>
+                      {profiles
+                        .filter((p) => p.enabled)
+                        .map((p) => (
+                          <button
+                            key={p.id}
+                            className={`model-popover-item ${p.id === selectedModel ? "selected" : ""}`}
+                            onClick={() => {
+                              setSelectedModel(p.id);
+                              setModelSelectorOpen(false);
+                            }}
+                            type="button"
+                          >
+                            <div>
+                              <div className="model-popover-item-name">{p.name}</div>
+                              <div className="model-popover-item-id">{p.model_id}</div>
+                            </div>
+                            {p.id === selectedModel && (
+                              <span style={{ color: "var(--accent)" }}>✓</span>
+                            )}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
                 <textarea
                   ref={textareaRef}
                   className="chat-input"
@@ -374,6 +517,21 @@ export function ChatPage() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete Conversation"
+        message="This will permanently delete this conversation and all its messages. This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => {
+          if (deleteId) {
+            await remove(deleteId);
+            setDeleteId(null);
+          }
+        }}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   );
 }

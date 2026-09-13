@@ -1,18 +1,26 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore, useProviderStore, useUpdateStore } from "../../lib/stores";
+import { OptionSelect } from "../ui/OptionSelect";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import type { Settings } from "../../lib/types";
 
 type SettingsTab = "general" | "providers" | "voice" | "updates";
 
 export function SettingsPage() {
   const { settings, update } = useSettingsStore();
-  const { accounts, add, remove, setActive } = useProviderStore();
+  const { accounts, add, remove, setActive, test } = useProviderStore();
   const { status: updateStatus, currentVersion, latestVersion, check: checkUpdates } = useUpdateStore();
   const [tab, setTab] = useState<SettingsTab>("general");
   const [showAddKey, setShowAddKey] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyValue, setNewKeyValue] = useState("");
   const [newKeyUrl, setNewKeyUrl] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ id: string; success: boolean; message: string } | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [voiceTestText, setVoiceTestText] = useState("Hello, I am LUNA.");
+  const [voiceTesting, setVoiceTesting] = useState(false);
 
   if (!settings) {
     return (
@@ -52,6 +60,28 @@ export function SettingsPage() {
     setShowAddKey(false);
   };
 
+  const handleTestProvider = async (id: string) => {
+    setTestingId(id);
+    setTestResult(null);
+    const result = await test(id);
+    setTestResult({ id, ...result });
+    setTestingId(null);
+  };
+
+  const handleTestVoice = async () => {
+    setVoiceTesting(true);
+    try {
+      await invoke("tts_speak", {
+        text: voiceTestText,
+        voice: settings.voice.voice || undefined,
+        speed: settings.voice.speed,
+      });
+    } catch (e) {
+      setTestResult({ id: "voice", success: false, message: String(e) });
+    }
+    setVoiceTesting(false);
+  };
+
   const updateStatusText: Record<string, string> = {
     idle: "Not checked yet",
     checking: "Checking...",
@@ -60,6 +90,19 @@ export function SettingsPage() {
     offline: "Offline — unable to check",
     error: "Check failed",
   };
+
+  const languageOptions = [
+    { value: "en", label: "English", icon: "🇬🇧" },
+    { value: "es", label: "Spanish", icon: "🇪🇸" },
+    { value: "fr", label: "French", icon: "🇫🇷" },
+    { value: "de", label: "German", icon: "🇩🇪" },
+    { value: "ja", label: "Japanese", icon: "🇯🇵" },
+    { value: "zh", label: "Chinese", icon: "🇨🇳" },
+  ];
+
+  const providerOptions = [
+    { value: "openrouter", label: "OpenRouter", description: "Multi-model gateway" },
+  ];
 
   return (
     <div className="settings-layout">
@@ -95,29 +138,23 @@ export function SettingsPage() {
           <>
             <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 20 }}>General</h2>
             <div className="card">
-              <div className="form-group">
-                <label className="form-label">Language</label>
-                <select
-                  className="form-select"
-                  value={settings.general.language}
-                  onChange={(e) => handleSaveGeneral("language", e.target.value)}
-                >
-                  <option value="en">English</option>
-                </select>
-              </div>
+              <OptionSelect
+                label="Language"
+                options={languageOptions}
+                value={settings.general.language}
+                onChange={(v) => handleSaveGeneral("language", v)}
+              />
             </div>
 
             <div className="card">
               <div className="card-title" style={{ marginBottom: 12 }}>AI Behavior</div>
               <div className="form-group">
-                <label className="form-label">Default Provider</label>
-                <select
-                  className="form-select"
+                <OptionSelect
+                  label="Default Provider"
+                  options={providerOptions}
                   value={settings.ai.default_provider}
-                  onChange={(e) => handleSaveAi("default_provider", e.target.value)}
-                >
-                  <option value="openrouter">OpenRouter</option>
-                </select>
+                  onChange={(v) => handleSaveAi("default_provider", v)}
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Auto-save conversations</label>
@@ -159,7 +196,7 @@ export function SettingsPage() {
             <div className="card" style={{ marginBottom: 16 }}>
               <div className="card-title">OpenRouter API Keys</div>
               <div className="card-subtitle" style={{ marginTop: 4 }}>
-                Manage your OpenRouter API keys. Keys are stored locally.
+                Manage your OpenRouter API keys. Keys are stored locally and obfuscated.
               </div>
             </div>
             {accounts.length === 0 && (
@@ -174,20 +211,36 @@ export function SettingsPage() {
               <div key={acc.id} className="card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontWeight: 500 }}>{acc.name}</div>
+                    <div style={{ fontWeight: 500 }}>
+                      {acc.name}
+                      {acc.is_active && (
+                        <span className="badge badge-success" style={{ marginLeft: 8 }}>Active</span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                       {acc.api_key_masked}
                       {acc.base_url && <span> · {acc.base_url}</span>}
                     </div>
                   </div>
                   <div className="card-actions">
+                    {testResult?.id === acc.id && (
+                      <span className={`badge ${testResult.success ? "badge-success" : "badge-danger"}`}>
+                        {testResult.message}
+                      </span>
+                    )}
                     {!acc.is_active && (
                       <button className="btn btn-sm" onClick={() => setActive(acc.id)}>
                         Set Active
                       </button>
                     )}
-                    {acc.is_active && <span className="badge badge-success">Active</span>}
-                    <button className="btn btn-danger btn-sm" onClick={() => remove(acc.id)}>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => handleTestProvider(acc.id)}
+                      disabled={testingId === acc.id}
+                    >
+                      {testingId === acc.id ? "Testing..." : "Test"}
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => setDeleteId(acc.id)}>
                       Delete
                     </button>
                   </div>
@@ -241,6 +294,32 @@ export function SettingsPage() {
                   onChange={(e) => handleSaveVoice("volume", parseFloat(e.target.value))}
                   style={{ width: "100%" }}
                 />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Test Voice</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    className="form-input"
+                    style={{ flex: 1 }}
+                    value={voiceTestText}
+                    onChange={(e) => setVoiceTestText(e.target.value)}
+                    placeholder="Text to speak..."
+                  />
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleTestVoice}
+                    disabled={voiceTesting || !settings.voice.tts_enabled}
+                  >
+                    {voiceTesting ? "Speaking..." : "🔊 Test"}
+                  </button>
+                </div>
+                {testResult?.id === "voice" && (
+                  <div style={{ marginTop: 8 }}>
+                    <span className={`badge ${testResult.success ? "badge-success" : "badge-danger"}`}>
+                      {testResult.message}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -335,6 +414,21 @@ export function SettingsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Delete Provider Account"
+        message="This will permanently remove this provider account and its API key. This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={async () => {
+          if (deleteId) {
+            await remove(deleteId);
+            setDeleteId(null);
+          }
+        }}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   );
 }

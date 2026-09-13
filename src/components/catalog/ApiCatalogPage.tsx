@@ -4,6 +4,14 @@ import { useCatalogStore } from "../../lib/stores";
 const PUBLIC_APIS_README_URL =
   "https://raw.githubusercontent.com/public-apis/public-apis/master/README.md";
 
+const AUTH_FILTERS = [
+  { value: "", label: "All" },
+  { value: "none", label: "No Auth" },
+  { value: "apiKey", label: "API Key" },
+  { value: "oauth", label: "OAuth" },
+  { value: "bearer", label: "Bearer" },
+];
+
 export function ApiCatalogPage() {
   const {
     entries,
@@ -25,6 +33,7 @@ export function ApiCatalogPage() {
   } = useCatalogStore();
 
   const [showSyncResult, setShowSyncResult] = useState<string | null>(null);
+  const [showCategories, setShowCategories] = useState(false);
 
   useEffect(() => {
     if (entries.length === 0 && !stats) {
@@ -119,32 +128,64 @@ export function ApiCatalogPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            style={{ flex: 1 }}
           />
-          <select
-            className="form-select"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            style={{ minWidth: 140 }}
-          >
-            <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
+        </div>
+
+        {/* Category filter chips */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <button
+              className="filter-chip"
+              onClick={() => setShowCategories(!showCategories)}
+              style={{ fontWeight: 500 }}
+            >
+              Category: {filterCategory || "All"} {showCategories ? "▴" : "▾"}
+            </button>
+            {filterCategory && (
+              <button
+                className="filter-chip"
+                onClick={() => setFilterCategory("")}
+                style={{ color: "var(--danger)" }}
+              >
+                ✕ Clear
+              </button>
+            )}
+          </div>
+          {showCategories && (
+            <div className="filter-chips">
+              <button
+                className={`filter-chip ${!filterCategory ? "active" : ""}`}
+                onClick={() => { setFilterCategory(""); setShowCategories(false); }}
+              >
+                All
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  className={`filter-chip ${filterCategory === cat ? "active" : ""}`}
+                  onClick={() => { setFilterCategory(cat); setShowCategories(false); }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Auth type filter chips */}
+        <div style={{ marginBottom: 16 }}>
+          <div className="filter-chips">
+            {AUTH_FILTERS.map((af) => (
+              <button
+                key={af.value}
+                className={`filter-chip ${filterAuth === af.value ? "active" : ""}`}
+                onClick={() => setFilterAuth(af.value)}
+              >
+                {af.label}
+              </button>
             ))}
-          </select>
-          <select
-            className="form-select"
-            value={filterAuth}
-            onChange={(e) => setFilterAuth(e.target.value)}
-            style={{ minWidth: 140 }}
-          >
-            <option value="">All Auth Types</option>
-            <option value="none">No Auth</option>
-            <option value="apiKey">API Key</option>
-            <option value="oauth">OAuth</option>
-            <option value="bearer">Bearer Token</option>
-          </select>
+          </div>
         </div>
 
         {loading && (
