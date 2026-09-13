@@ -11,6 +11,42 @@ permissions:
   contents: write
 
 jobs:
+  # ── Determine if a release is needed ──
+  check-version:
+    name: Check Version
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.compare.outputs.should_release }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version' src-tauri/Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Current version: ${VERSION}"
+      - name: Check if release already exists
+        id: compare
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          echo "Checking for tag: ${TAG}"
+
+          # Check if this tag already exists as a GitHub Release
+          if gh release view "${TAG}" > /dev/null 2>&1; then
+            echo "Release ${TAG} already exists — skipping release"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "No release for ${TAG} — will create release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Rust checks ──
   check-rust:
     name: Rust Checks
     runs-on: ubuntu-latest
@@ -25,11 +61,15 @@ jobs:
       - name: Cargo Check
         working-directory: src-tauri
         run: cargo check --all-targets
+      - name: Cargo Test
+        working-directory: src-tauri
+        run: cargo test
       - name: Cargo Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
         continue-on-error: true
 
+  # ── Frontend checks ──
   check-frontend:
     name: Frontend Checks
     runs-on: ubuntu-latest
@@ -50,6 +90,7 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # ── Cross-platform Tauri builds ──
   build-tauri:
     name: Build (${{ matrix.os }})
     needs: [check-rust, check-frontend]
@@ -119,11 +160,14 @@ jobs:
           path: collected/*
           retention-days: 30
 
+  # ── Create release (on version change or tag push) ──
   release:
     name: Create Release
-    needs: [build-tauri]
+    needs: [build-tauri, check-version]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      startsWith(github.ref, 'refs/tags/v')
+      || (github.ref == 'refs/heads/main' && needs.check-version.outputs.should_release == 'true')
     steps:
       - uses: actions/checkout@v4
       - name: Download All Artifacts
@@ -133,18 +177,26 @@ jobs:
           merge-multiple: true
       - name: List Artifacts
         run: find artifacts -type f | sort
+      - name: Determine Version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ needs.check-version.outputs.version }}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Releasing version: ${VERSION}"
       - name: Generate Checksums
         run: |
           cd artifacts
           find . -type f \( -name "*.msi" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.app.tar.gz" -o -name "luna" -o -name "luna.exe" \) -exec sha256sum {} \; > ../checksums.txt
           echo "--- Checksums ---"
           cat ../checksums.txt
-      - name: Extract Version
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.version }}
           name: LUNA v${{ steps.version.outputs.version }}
           body: |
             ## LUNA v${{ steps.version.outputs.version }}

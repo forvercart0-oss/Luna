@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- CLI `luna update` now handles 404 gracefully ("No published release is currently available")
+- CI auto-creates releases when version changes (not just on tag push)
+- CI generates `latest.json` with real SHA-256 checksums from built artifacts
+
+### Added
+- Unit tests for CLI update logic (platform detection, version comparison, SHA-256 hashing)
+- CI runs `cargo test` as part of the Rust checks job
+
 ## [0.1.0] - 2026-09-13
 
 ### Added
@@ -104,5 +113,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - API tool execution not wired through the tool registry
 - No system tray support
 - No native notifications
-- No automatic in-app update (CLI update check available)
 - No splash screen on startup

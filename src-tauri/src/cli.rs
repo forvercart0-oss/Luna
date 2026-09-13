@@ -325,10 +325,17 @@ fn cmd_update() {
     // Fetch manifest
     let manifest: serde_json::Value = match http_get(MANIFEST_URL) {
         Ok(resp) => {
-            if !resp.status().is_success() {
+            let status = resp.status();
+            if status == reqwest::StatusCode::NOT_FOUND {
+                println!("No published release is currently available.");
+                println!("Check back later or download manually:");
+                println!("  https://github.com/{}/releases", REPO);
+                return;
+            }
+            if !status.is_success() {
                 eprintln!(
                     "ERROR: Could not fetch update manifest (HTTP {})",
-                    resp.status()
+                    status
                 );
                 eprintln!("Download manually: https://github.com/{}/releases", REPO);
                 std::process::exit(1);
@@ -773,5 +780,149 @@ fn main() {
         Commands::Update => cmd_update(),
         Commands::Version => cmd_version(),
         Commands::Doctor => cmd_doctor(),
+    }
+}
+
+// ── tests ──
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn detect_platform_returns_valid_os() {
+        let (os, _arch) = detect_platform();
+        assert!(
+            ["windows", "linux", "macos", "unknown"].contains(&os),
+            "unexpected OS: {}",
+            os
+        );
+    }
+
+    #[test]
+    fn detect_platform_returns_valid_arch() {
+        let (_os, arch) = detect_platform();
+        assert!(
+            ["x86_64", "aarch64", "i686", "arm", "wasm32"].contains(&arch)
+                || arch.starts_with("x86")
+                || arch.starts_with("arm"),
+            "unexpected arch: {}",
+            arch
+        );
+    }
+
+    #[test]
+    fn version_cmp_equal() {
+        assert_eq!(version_cmp("1.0.0", "1.0.0"), std::cmp::Ordering::Equal);
+    }
+
+    #[test]
+    fn version_cmp_less() {
+        assert_eq!(version_cmp("0.1.0", "0.2.0"), std::cmp::Ordering::Less);
+        assert_eq!(version_cmp("1.0.0", "2.0.0"), std::cmp::Ordering::Less);
+        assert_eq!(version_cmp("1.0.0", "1.1.0"), std::cmp::Ordering::Less);
+        assert_eq!(version_cmp("1.0.0", "1.0.1"), std::cmp::Ordering::Less);
+    }
+
+    #[test]
+    fn version_cmp_greater() {
+        assert_eq!(version_cmp("0.2.0", "0.1.0"), std::cmp::Ordering::Greater);
+        assert_eq!(version_cmp("2.0.0", "1.0.0"), std::cmp::Ordering::Greater);
+        assert_eq!(version_cmp("1.1.0", "1.0.0"), std::cmp::Ordering::Greater);
+        assert_eq!(version_cmp("1.0.1", "1.0.0"), std::cmp::Ordering::Greater);
+    }
+
+    #[test]
+    fn version_cmp_short_versions() {
+        // Different-length vectors: shorter is less (Vec::cmp is lexicographic)
+        assert_eq!(version_cmp("1.0", "1.0.0"), std::cmp::Ordering::Less);
+        assert_eq!(version_cmp("1", "1.0.0"), std::cmp::Ordering::Less);
+        // Same-length short versions still work
+        assert_eq!(version_cmp("1.0", "1.0"), std::cmp::Ordering::Equal);
+    }
+
+    #[test]
+    fn version_cmp_non_numeric_segments() {
+        // Non-numeric segments are filtered out by parse().ok()
+        // "1.0.0-beta" → [1, 0] (0-beta fails parse), "1.0.0" → [1, 0, 0]
+        assert_eq!(
+            version_cmp("1.0.0-beta", "1.0.0"),
+            std::cmp::Ordering::Less
+        );
+    }
+
+    #[test]
+    fn sha256_file_computes_hash() {
+        let dir = std::env::temp_dir().join("luna-test-sha256");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("test.bin");
+        let mut f = std::fs::File::create(&path).unwrap();
+        f.write_all(b"hello world").unwrap();
+        drop(f);
+
+        let hash = sha256_file(&path).unwrap();
+        // SHA-256 of "hello world" is well-known
+        assert_eq!(
+            hash,
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sha256_file_empty_file() {
+        let dir = std::env::temp_dir().join("luna-test-sha256-empty");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("empty.bin");
+        std::fs::File::create(&path).unwrap();
+
+        let hash = sha256_file(&path).unwrap();
+        // SHA-256 of empty content
+        assert_eq!(
+            hash,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sha256_file_nonexistent_returns_error() {
+        let result = sha256_file(std::path::Path::new("/nonexistent/path/file.bin"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn get_version_returns_nonempty() {
+        let v = get_version();
+        assert!(!v.is_empty());
+        // Version should contain at least one dot
+        assert!(v.contains('.'), "version should contain dots: {}", v);
+    }
+
+    #[test]
+    fn manifest_url_is_https() {
+        assert!(
+            MANIFEST_URL.starts_with("https://"),
+            "manifest URL must use HTTPS"
+        );
+    }
+
+    #[test]
+    fn manifest_url_contains_releases() {
+        assert!(
+            MANIFEST_URL.contains("/releases/"),
+            "manifest URL must point to releases"
+        );
+    }
+
+    #[test]
+    fn manifest_url_ends_with_json() {
+        assert!(
+            MANIFEST_URL.ends_with(".json"),
+            "manifest URL must end with .json"
+        );
     }
 }
