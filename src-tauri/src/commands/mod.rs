@@ -12,3 +12,4 @@ pub mod activity;
 pub mod system;
 pub mod voice;
 pub mod update;
+pub mod desktop;

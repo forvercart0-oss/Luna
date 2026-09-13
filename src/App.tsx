@@ -10,6 +10,7 @@ import { PermissionsPage } from "./components/permissions/PermissionsPage";
 import { ActivityPage } from "./components/activity/ActivityPage";
 import { ApiCatalogPage } from "./components/catalog/ApiCatalogPage";
 import { ApiCredentialsPage } from "./components/credentials/ApiCredentialsPage";
+import { DesktopPage } from "./components/desktop/DesktopPage";
 import { useSoundEffects } from "./lib/hooks/useSoundEffects";
 import {
   useSettingsStore,
@@ -118,6 +119,8 @@ function App() {
         return <ApiCatalogPage />;
       case "api-credentials":
         return <ApiCredentialsPage />;
+      case "desktop":
+        return <DesktopPage />;
       default:
         return <HomeScreen onNavigate={setPage} />;
     }

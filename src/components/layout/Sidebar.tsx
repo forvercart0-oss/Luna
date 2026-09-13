@@ -10,6 +10,7 @@ const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: "permissions", label: "Tools", icon: "🔧" },
   { id: "api-catalog", label: "API Catalog", icon: "🌐" },
   { id: "api-credentials", label: "Credentials", icon: "🔑" },
+  { id: "desktop", label: "Desktop", icon: "🖥️" },
   { id: "settings", label: "Settings", icon: "⚙️" },
 ];
 

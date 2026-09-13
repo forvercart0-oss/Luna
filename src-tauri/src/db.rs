@@ -66,6 +66,7 @@ impl Database {
             ("007_audit", include_str!("../migrations/007_audit.sql")),
             ("008_tasks", include_str!("../migrations/008_tasks.sql")),
             ("009_api_catalog", include_str!("../migrations/009_api_catalog.sql")),
+            ("010_secure_storage_and_extensions", include_str!("../migrations/010_secure_storage_and_extensions.sql")),
         ];
 
         for (name, sql) in migrations {

@@ -3,6 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import type {
   Settings,
   ProviderAccount,
+  OpenRouterModel,
+  ConnectionTestResult,
   ModelProfile,
   Conversation,
   Message,
@@ -21,6 +23,9 @@ import type {
   ToolExecution,
   UpdateCheckResult,
   UpdateStatus,
+  ClipboardContent,
+  ScreenInfo,
+  ScreenshotResult,
 } from "../types";
 
 import { create } from "zustand";
@@ -66,7 +71,9 @@ interface ProviderState {
   add: (name: string, apiKey: string, baseUrl?: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   setActive: (id: string) => Promise<void>;
-  test: (id: string) => Promise<{ success: boolean; message: string }>;
+  test: (id: string) => Promise<ConnectionTestResult>;
+  fetchModels: (id: string) => Promise<OpenRouterModel[]>;
+  updateProvider: (id: string, updates: { name?: string; apiKey?: string; baseUrl?: string; isActive?: boolean }) => Promise<void>;
 }
 
 export const useProviderStore = create<ProviderState>((set, get) => ({
@@ -116,15 +123,35 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
   },
   test: async (id) => {
     try {
-      const account = get().accounts.find((a) => a.id === id);
-      if (!account) return { success: false, message: "Account not found" };
-      const result = await invoke<{ success: boolean; message: string }>("test_credential", {
+      const result = await invoke<ConnectionTestResult>("test_provider_account", {
         id,
-        testUrl: null,
       });
       return result;
     } catch (e) {
       return { success: false, message: String(e) };
+    }
+  },
+  fetchModels: async (id) => {
+    try {
+      const models = await invoke<OpenRouterModel[]>("fetch_provider_models", { id });
+      return models;
+    } catch (e) {
+      console.error("Failed to fetch models:", e);
+      return [];
+    }
+  },
+  updateProvider: async (id, updates) => {
+    try {
+      await invoke("update_provider_account", {
+        id,
+        name: updates.name ?? null,
+        apiKey: updates.apiKey ?? null,
+        baseUrl: updates.baseUrl ?? null,
+        isActive: updates.isActive ?? null,
+      });
+      await get().load();
+    } catch (e) {
+      console.error("Failed to update provider:", e);
     }
   },
 }));
@@ -582,6 +609,7 @@ interface ToolState {
   tools: ToolDefinition[];
   loading: boolean;
   load: () => Promise<void>;
+  execute: (toolId: string, args: Record<string, unknown>) => Promise<{ success: boolean; output: string; error?: string }>;
 }
 
 export const useToolStore = create<ToolState>((set) => ({
@@ -596,6 +624,91 @@ export const useToolStore = create<ToolState>((set) => ({
       console.error("Failed to load tools:", e);
       set({ loading: false });
     }
+  },
+  execute: async (toolId, args) => {
+    try {
+      const result = await invoke<{ success: boolean; output: string; error?: string }>("execute_tool", {
+        toolId,
+        arguments: args,
+      });
+      return result;
+    } catch (e) {
+      return { success: false, output: "", error: String(e) };
+    }
+  },
+}));
+
+// ── Desktop Store ──
+
+interface DesktopState {
+  clipboardContent: string | null;
+  clipboardHistory: ClipboardContent[];
+  screenInfo: ScreenInfo | null;
+  loadClipboard: () => Promise<void>;
+  writeClipboard: (content: string) => Promise<void>;
+  loadClipboardHistory: () => Promise<void>;
+  sendNotification: (title: string, body: string) => Promise<void>;
+  loadScreenInfo: () => Promise<void>;
+  captureScreenshot: (monitorIndex?: number) => Promise<ScreenshotResult | null>;
+  listDir: (path: string) => Promise<string[]>;
+  checkFileExists: (path: string) => Promise<boolean>;
+}
+
+export const useDesktopStore = create<DesktopState>((set) => ({
+  clipboardContent: null,
+  clipboardHistory: [],
+  screenInfo: null,
+  loadClipboard: async () => {
+    try {
+      const content = await invoke<ClipboardContent>("read_clipboard");
+      set({ clipboardContent: content.content });
+    } catch (e) {
+      console.error("Failed to read clipboard:", e);
+    }
+  },
+  writeClipboard: async (content) => {
+    await invoke("write_clipboard", { content });
+  },
+  loadClipboardHistory: async () => {
+    try {
+      const history = await invoke<ClipboardContent[]>("get_clipboard_history");
+      set({ clipboardHistory: history });
+    } catch (e) {
+      console.error("Failed to load clipboard history:", e);
+    }
+  },
+  sendNotification: async (title, body) => {
+    await invoke("send_notification", { title, body });
+  },
+  loadScreenInfo: async () => {
+    try {
+      const info = await invoke<ScreenInfo>("get_screen_info");
+      set({ screenInfo: info });
+    } catch (e) {
+      console.error("Failed to get screen info:", e);
+    }
+  },
+  captureScreenshot: async (monitorIndex) => {
+    try {
+      const result = await invoke<ScreenshotResult>("capture_screenshot", {
+        monitorIndex: monitorIndex ?? null,
+      });
+      return result;
+    } catch (e) {
+      console.error("Failed to capture screenshot:", e);
+      return null;
+    }
+  },
+  listDir: async (path) => {
+    try {
+      return await invoke<string[]>("list_directory", { path });
+    } catch (e) {
+      console.error("Failed to list directory:", e);
+      return [];
+    }
+  },
+  checkFileExists: async (path) => {
+    return await invoke<boolean>("file_exists", { path });
   },
 }));
 

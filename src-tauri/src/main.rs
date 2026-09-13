@@ -13,6 +13,7 @@ mod voice;
 mod settings;
 mod api_catalog;
 mod api_connector;
+mod crypto;
 
 use std::sync::Arc;
 use tauri::Manager;
@@ -38,6 +39,8 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app_dir = app
                 .path()
@@ -106,6 +109,17 @@ fn main() {
             commands::permissions::update_permission,
             commands::audit::get_audit_logs,
             commands::tools::get_tool_list,
+            commands::tools::execute_tool,
+            commands::desktop::read_clipboard,
+            commands::desktop::write_clipboard,
+            commands::desktop::get_clipboard_history,
+            commands::desktop::send_notification,
+            commands::desktop::get_screen_info,
+            commands::desktop::capture_screenshot,
+            commands::desktop::list_directory,
+            commands::desktop::file_exists,
+            commands::providers::test_provider_account,
+            commands::providers::fetch_provider_models,
             commands::catalog::sync_catalog,
             commands::catalog::search_catalog,
             commands::catalog::get_catalog_stats,

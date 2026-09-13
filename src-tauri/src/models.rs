@@ -3,7 +3,21 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::crypto;
 use crate::db::Database;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenRouterModel {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub context_tokens: u64,
+    pub pricing_prompt: f64,
+    pub pricing_completion: f64,
+    pub architecture: String,
+    pub category: String,
+    pub provider: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelProfile {
@@ -184,6 +198,7 @@ pub struct ProviderAccount {
     pub api_key_masked: String,
     pub base_url: Option<String>,
     pub is_active: bool,
+    pub secure_storage: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -206,20 +221,53 @@ pub struct UpdateProviderAccount {
 
 pub struct ProviderManager {
     db: Arc<Database>,
+    secure: crypto::SecureStorage,
 }
 
 impl ProviderManager {
     pub fn new(db: Arc<Database>) -> Self {
-        Self { db }
+        Self {
+            db,
+            secure: crypto::SecureStorage::new(),
+        }
+    }
+
+    pub fn retrieve_key(&self, ref_id: &str) -> Result<String> {
+        if self.secure.is_available() {
+            if let Ok(key) = self.secure.retrieve(ref_id) {
+                return Ok(key);
+            }
+        }
+        let obfuscated: String = self.db.query_row(
+            "SELECT api_key_encrypted FROM provider_accounts WHERE id = ?1",
+            &[&ref_id as &dyn rusqlite::types::ToSql],
+            |row| row.get(0),
+        )?;
+        Ok(obfuscated)
     }
 
     pub fn create(&self, input: CreateProviderAccount) -> Result<ProviderAccount> {
         let id = Uuid::new_v4().to_string();
-        let masked = mask_api_key(&input.api_key);
+        let masked = crypto::mask_key(&input.api_key);
+
+        let (storage_ref, secure_storage) = if self.secure.is_available() {
+            self.secure.store(&id, &input.api_key)?;
+            (id.clone(), "keyring".to_string())
+        } else {
+            let obfuscated = crypto::obfuscate(&input.api_key);
+            (obfuscated, "obfuscated".to_string())
+        };
 
         self.db.execute(
-            "INSERT INTO provider_accounts (id, provider, name, api_key_encrypted, base_url) VALUES (?1, ?2, ?3, ?4, ?5)",
-            &[&id as &dyn rusqlite::types::ToSql, &input.provider, &input.name, &input.api_key, &input.base_url],
+            "INSERT INTO provider_accounts (id, provider, name, api_key_encrypted, base_url, secure_storage) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            &[
+                &id as &dyn rusqlite::types::ToSql,
+                &input.provider,
+                &input.name,
+                &storage_ref,
+                &input.base_url,
+                &secure_storage,
+            ],
         )?;
 
         Ok(ProviderAccount {
@@ -229,6 +277,7 @@ impl ProviderManager {
             api_key_masked: masked,
             base_url: input.base_url,
             is_active: false,
+            secure_storage,
             created_at: chrono::Utc::now().to_rfc3339(),
             updated_at: chrono::Utc::now().to_rfc3339(),
         })
@@ -236,31 +285,112 @@ impl ProviderManager {
 
     pub fn get_all(&self) -> Result<Vec<ProviderAccount>> {
         self.db.query_map(
-            "SELECT id, provider, name, api_key_encrypted, base_url, is_active, created_at, updated_at FROM provider_accounts ORDER BY created_at DESC",
+            "SELECT id, provider, name, api_key_encrypted, base_url, secure_storage, is_active, created_at, updated_at FROM provider_accounts ORDER BY created_at DESC",
             &[],
             |row| {
-                let api_key: String = row.get(3)?;
+                let storage_ref: String = row.get(3)?;
+                let secure_storage: String = row.get(5)?;
+                let masked = if secure_storage == "keyring" {
+                    if let Ok(key) = self.secure.retrieve(&row.get::<_, String>(0)?) {
+                        crypto::mask_key(&key)
+                    } else {
+                        "**".to_string()
+                    }
+                } else {
+                    crypto::mask_key(&crypto::deobfuscate(&storage_ref))
+                };
                 Ok(ProviderAccount {
                     id: row.get(0)?,
                     provider: row.get(1)?,
                     name: row.get(2)?,
-                    api_key_masked: mask_api_key(&api_key),
+                    api_key_masked: masked,
                     base_url: row.get(4)?,
-                    is_active: row.get::<_, i64>(5)? != 0,
-                    created_at: row.get(6)?,
-                    updated_at: row.get(7)?,
+                    is_active: row.get::<_, i64>(6)? != 0,
+                    secure_storage,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
+                })
+            },
+        )
+    }
+
+    pub fn get_by_id(&self, id: &str) -> Result<ProviderAccount> {
+        self.db.query_row(
+            "SELECT id, provider, name, api_key_encrypted, base_url, secure_storage, is_active, created_at, updated_at FROM provider_accounts WHERE id = ?1",
+            &[&id as &dyn rusqlite::types::ToSql],
+            |row| {
+                let storage_ref: String = row.get(3)?;
+                let secure_storage: String = row.get(5)?;
+                let ref_id: String = row.get(0)?;
+                let masked = if secure_storage == "keyring" {
+                    if let Ok(key) = self.secure.retrieve(&ref_id) {
+                        crypto::mask_key(&key)
+                    } else {
+                        "**".to_string()
+                    }
+                } else {
+                    crypto::mask_key(&crypto::deobfuscate(&storage_ref))
+                };
+                Ok(ProviderAccount {
+                    id: row.get(0)?,
+                    provider: row.get(1)?,
+                    name: row.get(2)?,
+                    api_key_masked: masked,
+                    base_url: row.get(4)?,
+                    is_active: row.get::<_, i64>(6)? != 0,
+                    secure_storage,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
                 })
             },
         )
     }
 
     pub fn get_active_key(&self) -> Result<Option<(String, Option<String>)>> {
-        match self.db.query_row(
-            "SELECT api_key_encrypted, base_url FROM provider_accounts WHERE is_active = 1 LIMIT 1",
+        let row: Option<(String, String, Option<String>)> = self.db.query_row(
+            "SELECT api_key_encrypted, secure_storage, base_url FROM provider_accounts WHERE is_active = 1 LIMIT 1",
             &[],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
+            },
+        ).ok();
+
+        match row {
+            Some((storage_ref, secure_storage, base_url)) => {
+                let key = if secure_storage == "keyring" {
+                    self.secure.retrieve(&storage_ref)?
+                } else {
+                    crypto::deobfuscate(&storage_ref)
+                };
+                Ok(Some((key, base_url)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_key_by_id(&self, id: &str) -> Result<Option<String>> {
+        match self.db.query_row(
+            "SELECT api_key_encrypted, secure_storage FROM provider_accounts WHERE id = ?1",
+            &[&id as &dyn rusqlite::types::ToSql],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                ))
+            },
         ) {
-            Ok(pair) => Ok(Some(pair)),
+            Ok((storage_ref, secure_storage)) => {
+                let key = if secure_storage == "keyring" {
+                    self.secure.retrieve(&storage_ref)?
+                } else {
+                    crypto::deobfuscate(&storage_ref)
+                };
+                Ok(Some(key))
+            }
             Err(e) => {
                 if e.to_string().contains("QueryReturnedNoRows") {
                     Ok(None)
@@ -272,11 +402,14 @@ impl ProviderManager {
     }
 
     pub fn delete(&self, id: &str) -> Result<()> {
+        if self.secure.is_available() {
+            let _ = self.secure.delete(id);
+        }
         self.db.execute("DELETE FROM provider_accounts WHERE id = ?1", &[&id as &dyn rusqlite::types::ToSql])?;
         Ok(())
     }
 
-    pub fn update(&self, id: &str, input: UpdateProviderAccount) -> Result<()> {
+    pub fn update(&self, id: &str, input: UpdateProviderAccount) -> Result<ProviderAccount> {
         if let Some(name) = &input.name {
             self.db.execute(
                 "UPDATE provider_accounts SET name = ?1, updated_at = datetime('now') WHERE id = ?2",
@@ -284,10 +417,18 @@ impl ProviderManager {
             )?;
         }
         if let Some(api_key) = &input.api_key {
-            let masked = mask_api_key(api_key);
+            let (storage_ref, secure_storage) = if self.secure.is_available() {
+                self.secure.store(id, api_key)?;
+                let _ = self.secure.delete(id);
+                self.secure.store(id, api_key)?;
+                (id.to_string(), "keyring".to_string())
+            } else {
+                let obfuscated = crypto::obfuscate(api_key);
+                (obfuscated, "obfuscated".to_string())
+            };
             self.db.execute(
-                "UPDATE provider_accounts SET api_key_encrypted = ?1, api_key_masked = ?2, updated_at = datetime('now') WHERE id = ?3",
-                &[api_key as &dyn rusqlite::types::ToSql, &masked as &dyn rusqlite::types::ToSql, &id],
+                "UPDATE provider_accounts SET api_key_encrypted = ?1, secure_storage = ?2, updated_at = datetime('now') WHERE id = ?3",
+                &[&storage_ref as &dyn rusqlite::types::ToSql, &secure_storage, &id],
             )?;
         }
         if let Some(base_url) = &input.base_url {
@@ -303,17 +444,8 @@ impl ProviderManager {
                 &[&id as &dyn rusqlite::types::ToSql],
             )?;
         }
-        Ok(())
+        self.get_by_id(id)
     }
-}
-
-fn mask_api_key(key: &str) -> String {
-    if key.len() <= 8 {
-        return "*".repeat(key.len());
-    }
-    let start = &key[..4];
-    let end = &key[key.len() - 4..];
-    format!("{}...{}", start, end)
 }
 
 // ── Conversation Manager ──

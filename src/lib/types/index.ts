@@ -35,8 +35,26 @@ export interface ProviderAccount {
   api_key_masked: string;
   base_url: string | null;
   is_active: boolean;
+  secure_storage: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface OpenRouterModel {
+  id: string;
+  name: string;
+  description: string;
+  context_tokens: number;
+  pricing_prompt: number;
+  pricing_completion: number;
+  architecture: string;
+  category: string;
+  provider: string;
+}
+
+export interface ConnectionTestResult {
+  success: boolean;
+  message: string;
 }
 
 // ── Models ──
@@ -222,7 +240,8 @@ export type Page =
   | "permissions"
   | "activity"
   | "api-catalog"
-  | "api-credentials";
+  | "api-credentials"
+  | "desktop";
 
 export type SettingsPage = "general" | "providers" | "catalog" | "voice";
 
@@ -260,4 +279,31 @@ export interface ToolExecution {
   status: "pending" | "running" | "success" | "error";
   detail: string;
   timestamp: string;
+}
+
+// ── Desktop ──
+
+export interface ClipboardContent {
+  content: string;
+  content_type: string;
+}
+
+export interface MonitorInfo {
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  primary: boolean;
+}
+
+export interface ScreenInfo {
+  monitors: MonitorInfo[];
+}
+
+export interface ScreenshotResult {
+  base64: string;
+  width: number;
+  height: number;
+  format: string;
 }

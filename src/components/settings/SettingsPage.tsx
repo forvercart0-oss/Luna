@@ -9,7 +9,7 @@ type SettingsTab = "general" | "providers" | "voice" | "updates";
 
 export function SettingsPage() {
   const { settings, update } = useSettingsStore();
-  const { accounts, add, remove, setActive, test } = useProviderStore();
+  const { accounts, add, remove, setActive, test, fetchModels } = useProviderStore();
   const { status: updateStatus, currentVersion, latestVersion, check: checkUpdates } = useUpdateStore();
   const [tab, setTab] = useState<SettingsTab>("general");
   const [showAddKey, setShowAddKey] = useState(false);
@@ -196,7 +196,7 @@ export function SettingsPage() {
             <div className="card" style={{ marginBottom: 16 }}>
               <div className="card-title">OpenRouter API Keys</div>
               <div className="card-subtitle" style={{ marginTop: 4 }}>
-                Manage your OpenRouter API keys. Keys are stored locally and obfuscated.
+                Manage your API provider accounts. Keys are stored locally in your OS secure storage.
               </div>
             </div>
             {accounts.length === 0 && (
@@ -207,46 +207,62 @@ export function SettingsPage() {
                 </div>
               </div>
             )}
-            {accounts.map((acc) => (
-              <div key={acc.id} className="card">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>
-                      {acc.name}
-                      {acc.is_active && (
-                        <span className="badge badge-success" style={{ marginLeft: 8 }}>Active</span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {acc.api_key_masked}
-                      {acc.base_url && <span> · {acc.base_url}</span>}
-                    </div>
-                  </div>
-                  <div className="card-actions">
-                    {testResult?.id === acc.id && (
-                      <span className={`badge ${testResult.success ? "badge-success" : "badge-danger"}`}>
-                        {testResult.message}
-                      </span>
-                    )}
-                    {!acc.is_active && (
-                      <button className="btn btn-sm" onClick={() => setActive(acc.id)}>
-                        Set Active
-                      </button>
-                    )}
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => handleTestProvider(acc.id)}
-                      disabled={testingId === acc.id}
-                    >
-                      {testingId === acc.id ? "Testing..." : "Test"}
-                    </button>
-                    <button className="btn btn-danger btn-sm" onClick={() => setDeleteId(acc.id)}>
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                   {accounts.map((acc) => (
+               <div key={acc.id} className="card">
+                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                   <div>
+                     <div style={{ fontWeight: 500 }}>
+                       {acc.name}
+                       {acc.is_active && (
+                         <span className="badge badge-success" style={{ marginLeft: 8 }}>Active</span>
+                       )}
+                     </div>
+                     <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                       {acc.api_key_masked}
+                       <span style={{ marginLeft: 8, fontSize: 11, color: "var(--text_secondary)" }}>
+                         {acc.secure_storage === "keyring" ? "Stored securely" : "Obfuscated (install secret-service for better security)"}
+                       </span>
+                       {acc.base_url && <span> · {acc.base_url}</span>}
+                     </div>
+                   </div>
+                   <div className="card-actions">
+                     {testResult?.id === acc.id && (
+                       <span className={`badge ${testResult.success ? "badge-success" : "badge-danger"}`}>
+                         {testResult.message}
+                       </span>
+                     )}
+                     {!acc.is_active && (
+                       <button className="btn btn-sm" onClick={() => setActive(acc.id)}>
+                         Set Active
+                       </button>
+                     )}
+                     <button
+                       className="btn btn-sm"
+                       onClick={async () => {
+                         const models = await fetchModels(acc.id);
+                         if (models.length > 0) {
+                           alert(`Found ${models.length} models for ${acc.name}. Example: ${models[0].name}`);
+                         } else {
+                           alert(`No models found or failed to fetch for ${acc.name}.`);
+                         }
+                       }}
+                     >
+                       Fetch Models
+                     </button>
+                     <button
+                       className="btn btn-sm"
+                       onClick={() => handleTestProvider(acc.id)}
+                       disabled={testingId === acc.id}
+                     >
+                       {testingId === acc.id ? "Testing..." : "Test"}
+                     </button>
+                     <button className="btn btn-danger btn-sm" onClick={() => setDeleteId(acc.id)}>
+                       Delete
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             ))}
           </>
         )}
 
