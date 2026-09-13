@@ -19,6 +19,8 @@ import type {
   ActivityEvent,
   AssistantState,
   ToolExecution,
+  UpdateCheckResult,
+  UpdateStatus,
 } from "../types";
 
 import { create } from "zustand";
@@ -860,6 +862,49 @@ export const useSystemStatsStore = create<SystemStatsState>((set) => ({
       set({ stats });
     } catch (e) {
       console.error("Failed to load system stats:", e);
+    }
+  },
+}));
+
+// ── Update Store ──
+
+interface UpdateState {
+  status: UpdateStatus;
+  currentVersion: string;
+  latestVersion: string | null;
+  downloadUrl: string | null;
+  notes: string | null;
+  lastCheck: number;
+  check: () => Promise<void>;
+}
+
+const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+export const useUpdateStore = create<UpdateState>((set, get) => ({
+  status: "idle",
+  currentVersion: "",
+  latestVersion: null,
+  downloadUrl: null,
+  notes: null,
+  lastCheck: 0,
+  check: async () => {
+    const now = Date.now();
+    if (get().lastCheck > 0 && now - get().lastCheck < CHECK_INTERVAL_MS) {
+      return;
+    }
+    set({ status: "checking" });
+    try {
+      const result = await invoke<UpdateCheckResult>("check_for_updates");
+      set({
+        status: result.status as UpdateStatus,
+        currentVersion: result.current_version,
+        latestVersion: result.latest_version,
+        downloadUrl: result.download_url,
+        notes: result.notes,
+        lastCheck: Date.now(),
+      });
+    } catch (e) {
+      set({ status: "error", notes: String(e) });
     }
   },
 }));

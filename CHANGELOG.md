@@ -6,14 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- In-app update checking via `check_for_updates` Tauri command
+- Update store with 6-hour check interval, startup check, manual check from Settings
+- Update banner notification when a newer version is available
+- Updates tab in Settings with version info and "Check for Updates" button
+- Models and API Credentials pages added to sidebar navigation
+- 5 unit tests for update command (version comparison, platform detection)
+
 ### Fixed
 - CLI `luna update` now handles 404 gracefully ("No published release is currently available")
-- CI auto-creates releases when version changes (not just on tag push)
+- CI auto-creates releases when version changes in Cargo.toml (not just on tag push)
 - CI generates `latest.json` with real SHA-256 checksums from built artifacts
+- Provider "Set Active" button now actually works (was passing `is_active` but backend ignored it)
+- Select/dropdown colors fixed for dark theme (options now have dark background, light text)
+- HomeScreen status line now shows actual model name and assistant state (was hardcoded "Voice: Kokoro")
+- Panel toggle arrows (▾) removed — they had no click handler
 
-### Added
-- Unit tests for CLI update logic (platform detection, version comparison, SHA-256 hashing)
-- CI runs `cargo test` as part of the Rust checks job
+### Changed
+- TopBar simplified: removed dead Microphone, Voice, Settings buttons and decorative window dots
+- Sidebar now includes all reachable pages (Models, API Credentials were unreachable before)
+- Language dropdown only shows "English" (removed fake "Urdu" option that did nothing)
+- Theme dropdown removed (only dark theme exists in CSS)
+- System stats show "Unavailable" instead of "—" when data cannot be obtained
+
+### Removed
+- Dead Microphone button from TopBar and HomeScreen (no handler)
+- Dead Voice dropdown button from TopBar (no handler)
+- Dead Settings button from TopBar (sidebar already has Settings)
+- Dead window control dots from TopBar (decorative, no handlers)
+- Dead panel toggle arrows from HomeScreen (cursor: pointer but no click handler)
+- Dead `_current_exe` variable from CLI `install_appimage`
+- Dead `VoiceConfig` struct from voice.rs
+- Dead `AiProvider` trait, `StreamDelta`, `StreamChoice`, `StreamResponse` from providers/mod.rs
+- Dead `ProviderManager::set_active` and `ProviderManager::get_key_by_id` methods
+- Dead `UpdateProviderAccount.is_active` field (now actually used for provider activation)
+- Dead topbar-voice, topbar-window, topbar-btn, composer-btn CSS rules
+- Duplicate model-selector CSS (now defined alongside form-select)
 
 ## [0.1.0] - 2026-09-13
 

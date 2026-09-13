@@ -30,12 +30,11 @@ function SystemStats() {
     <div className="panel-section">
       <div className="panel-header">
         <div className="panel-title">SYSTEM</div>
-        <div className="panel-toggle">▾</div>
       </div>
       <div className="system-stat">
         <div className="system-stat-label"><span className="system-stat-icon">⚡</span> CPU</div>
         <div className="system-stat-value">
-          {stats?.cpu_usage != null ? `${stats.cpu_usage.toFixed(1)}%` : "—"}
+          {stats?.cpu_usage != null ? `${stats.cpu_usage.toFixed(1)}%` : "Unavailable"}
         </div>
       </div>
       <div className="system-stat">
@@ -43,7 +42,7 @@ function SystemStats() {
         <div className="system-stat-value">
           {stats?.memory_used_mb != null && stats?.memory_total_mb != null
             ? `${(stats.memory_used_mb / 1024).toFixed(1)}/${(stats.memory_total_mb / 1024).toFixed(1)} GB`
-            : "—"}
+            : "Unavailable"}
         </div>
       </div>
       <div className="system-stat">
@@ -51,19 +50,19 @@ function SystemStats() {
         <div className="system-stat-value">
           {stats?.disk_used_gb != null && stats?.disk_total_gb != null
             ? `${stats.disk_used_gb.toFixed(1)}/${stats.disk_total_gb.toFixed(1)} GB`
-            : "—"}
+            : "Unavailable"}
         </div>
       </div>
       <div className="system-stat">
         <div className="system-stat-label"><span className="system-stat-icon">🖥</span> Host</div>
         <div className="system-stat-value" style={{ fontSize: 11 }}>
-          {stats?.hostname || "—"}
+          {stats?.hostname || "Unavailable"}
         </div>
       </div>
       <div className="system-stat">
         <div className="system-stat-label"><span className="system-stat-icon">🐧</span> OS</div>
         <div className="system-stat-value" style={{ fontSize: 11 }}>
-          {stats?.os || "—"}
+          {stats?.os || "Unavailable"}
         </div>
       </div>
     </div>
@@ -78,7 +77,6 @@ function MemoryPanel() {
     <div className="panel-section">
       <div className="panel-header">
         <div className="panel-title">MEMORY</div>
-        <div className="panel-toggle">▾</div>
       </div>
       {recent.length === 0 ? (
         <div style={{ fontSize: 12, color: "var(--text-muted)" }}>No memories yet</div>
@@ -210,7 +208,6 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
           <div className="orb-wrapper">
             <OrbStatus />
             <div className="orb-label">LUNA</div>
-            <div className="orb-status-text">ONLINE</div>
             <div className="orb-state-text">{stateLabel}</div>
           </div>
         </div>
@@ -322,15 +319,14 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
               placeholder="Ask LUNA anything..."
               rows={1}
             />
-            <button className="composer-btn" title="Microphone">🎤</button>
             {sending ? (
-              <button className="composer-send stop" onClick={handleCancel} title="Stop">■</button>
+              <button className="composer-send stop" onClick={handleCancel} title="Stop generation">■</button>
             ) : (
               <button
                 className="composer-send"
                 onClick={handleSend}
                 disabled={!input.trim()}
-                title="Send"
+                title="Send message"
               >
                 ▶
               </button>
@@ -338,7 +334,7 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
           </div>
           <div className="composer-status">
             <div className="composer-status-item">
-              {activeProfile?.name || "No model"} | Voice: Kokoro | Ready
+              {activeProfile?.name || "No model configured"} | {assistantState === "idle" ? "Ready" : stateLabel}
             </div>
           </div>
         </div>

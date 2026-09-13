@@ -236,6 +236,24 @@ export type AssistantState =
   | "speaking"
   | "error";
 
+// ── Update ──
+
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "update_available"
+  | "up_to_date"
+  | "offline"
+  | "error";
+
+export interface UpdateCheckResult {
+  status: UpdateStatus;
+  current_version: string;
+  latest_version: string | null;
+  download_url: string | null;
+  notes: string | null;
+}
+
 export interface ToolExecution {
   id: string;
   tool_id: string;

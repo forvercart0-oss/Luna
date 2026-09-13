@@ -24,14 +24,34 @@ import {
   useCredentialStore,
   useActivityStore,
   useAssistantStore,
+  useUpdateStore,
 } from "./lib/stores";
 import type { Page } from "./lib/types";
+
+function UpdateBanner() {
+  const { status, latestVersion } = useUpdateStore();
+  const [dismissed, setDismissed] = useState(false);
+
+  if (status !== "update_available" || dismissed || !latestVersion) return null;
+
+  return (
+    <div className="update-banner">
+      <div className="update-banner-content">
+        <span className="update-banner-icon">⬆</span>
+        <span>Update available: <strong>v{latestVersion}</strong></span>
+        <span className="update-banner-hint">Run <code>luna update</code> to install</span>
+      </div>
+      <button className="update-banner-close" onClick={() => setDismissed(true)}>✕</button>
+    </div>
+  );
+}
 
 function App() {
   const [page, setPage] = useState<Page>("home");
   useSoundEffects();
 
   const initAssistant = useAssistantStore((s) => s.init);
+  const checkUpdate = useUpdateStore((s) => s.check);
 
   const loadSettings = useSettingsStore((s) => s.load);
   const loadProviders = useProviderStore((s) => s.load);
@@ -60,6 +80,7 @@ function App() {
     loadCategories();
     loadCredentials();
     loadActivity();
+    checkUpdate();
   }, [
     initAssistant,
     loadSettings,
@@ -74,6 +95,7 @@ function App() {
     loadCategories,
     loadCredentials,
     loadActivity,
+    checkUpdate,
   ]);
 
   const renderPage = () => {
@@ -103,6 +125,7 @@ function App() {
 
   return (
     <div className="app">
+      <UpdateBanner />
       <TopBar />
       <div className="app-body">
         <Sidebar page={page} onNavigate={setPage} />

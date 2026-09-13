@@ -130,6 +130,7 @@ fn main() {
             commands::voice::stt_transcribe,
             commands::voice::tts_check_availability,
             commands::voice::stt_check_availability,
+            commands::update::check_for_updates,
         ])
         .run(tauri::generate_context!())
         .expect("error while running luna");

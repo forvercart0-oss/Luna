@@ -51,9 +51,10 @@ LUNA provides conversational AI through OpenRouter, persistent memory, voice int
 - **Dark theme** — JARVIS-inspired UI with teal accents
 
 ### Settings
-- **General** — Theme, language preferences
-- **AI Providers** — Manage OpenRouter accounts and API keys
-- **Voice** — TTS/STT configuration
+- **General** — Language preferences, AI behavior settings
+- **Providers** — Manage OpenRouter accounts and API keys
+- **Voice** — TTS/STT configuration (voice name, speed, volume)
+- **Updates** — Check for updates, view current version
 - **Permissions** — Tool access control
 
 ## Installation
@@ -106,11 +107,38 @@ luna update     # Check for and install updates
 
 ### Updating
 
+LUNA checks for updates automatically at startup and every 6 hours. When an update is available, a banner appears at the top of the app.
+
+**Via CLI:**
 ```bash
 luna update
 ```
 
-This fetches the latest release from GitHub, verifies the checksum, and installs the update. Your data (conversations, memories, settings) is never affected.
+**Via GUI:**
+Go to **Settings → Updates → Check for Updates**
+
+This fetches the latest release from GitHub, verifies the SHA-256 checksum, and installs the update. Your data (conversations, memories, settings) is never affected.
+
+### Automatic Releases
+
+LUNA uses GitHub Actions for automatic cross-platform builds and releases.
+
+**Developer workflow:**
+```bash
+# Make changes
+git add .
+git commit -m "..."
+git push
+```
+
+**What happens on push to main:**
+1. CI runs Rust checks (cargo check, cargo test, clippy) and frontend checks (typecheck, lint, build)
+2. If the version in `Cargo.toml` has changed, CI builds for all platforms and creates a GitHub Release
+3. The release includes platform-specific artifacts and a `latest.json` manifest with SHA-256 checksums
+4. LUNA's update checker fetches `latest.json` to discover new versions
+
+**Version bumping:**
+Edit the `version` field in `src-tauri/Cargo.toml` (this is the single source of truth). Also update `src-tauri/tauri.conf.json` and `package.json` to match.
 
 ## Development
 

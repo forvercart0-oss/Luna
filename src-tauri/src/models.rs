@@ -201,7 +201,6 @@ pub struct UpdateProviderAccount {
     pub name: Option<String>,
     pub api_key: Option<String>,
     pub base_url: Option<String>,
-    #[allow(dead_code)]
     pub is_active: Option<bool>,
 }
 
@@ -272,50 +271,39 @@ impl ProviderManager {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn set_active(&self, id: &str) -> Result<()> {
-        self.db.execute("UPDATE provider_accounts SET is_active = 0", &[])?;
-        self.db.execute(
-            "UPDATE provider_accounts SET is_active = 1, updated_at = datetime('now') WHERE id = ?1",
-            &[&id as &dyn rusqlite::types::ToSql],
-        )?;
-        Ok(())
-    }
-
     pub fn delete(&self, id: &str) -> Result<()> {
         self.db.execute("DELETE FROM provider_accounts WHERE id = ?1", &[&id as &dyn rusqlite::types::ToSql])?;
         Ok(())
     }
 
     pub fn update(&self, id: &str, input: UpdateProviderAccount) -> Result<()> {
-        if let Some(ref name) = input.name {
+        if let Some(name) = &input.name {
             self.db.execute(
                 "UPDATE provider_accounts SET name = ?1, updated_at = datetime('now') WHERE id = ?2",
                 &[name as &dyn rusqlite::types::ToSql, &id],
             )?;
         }
-        if let Some(ref api_key) = input.api_key {
+        if let Some(api_key) = &input.api_key {
+            let masked = mask_api_key(api_key);
             self.db.execute(
-                "UPDATE provider_accounts SET api_key_encrypted = ?1, updated_at = datetime('now') WHERE id = ?2",
-                &[api_key as &dyn rusqlite::types::ToSql, &id],
+                "UPDATE provider_accounts SET api_key_encrypted = ?1, api_key_masked = ?2, updated_at = datetime('now') WHERE id = ?3",
+                &[api_key as &dyn rusqlite::types::ToSql, &masked as &dyn rusqlite::types::ToSql, &id],
             )?;
         }
-        if let Some(ref base_url) = input.base_url {
+        if let Some(base_url) = &input.base_url {
             self.db.execute(
                 "UPDATE provider_accounts SET base_url = ?1, updated_at = datetime('now') WHERE id = ?2",
                 &[base_url as &dyn rusqlite::types::ToSql, &id],
             )?;
         }
+        if let Some(true) = input.is_active {
+            self.db.execute("UPDATE provider_accounts SET is_active = 0", &[])?;
+            self.db.execute(
+                "UPDATE provider_accounts SET is_active = 1, updated_at = datetime('now') WHERE id = ?1",
+                &[&id as &dyn rusqlite::types::ToSql],
+            )?;
+        }
         Ok(())
-    }
-
-    #[allow(dead_code)]
-    pub fn get_key_by_id(&self, id: &str) -> Result<String> {
-        self.db.query_row(
-            "SELECT api_key_encrypted FROM provider_accounts WHERE id = ?1",
-            &[&id as &dyn rusqlite::types::ToSql],
-            |row| row.get(0),
-        )
     }
 }
 

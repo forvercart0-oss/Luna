@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { useSettingsStore, useProviderStore } from "../../lib/stores";
+import { useSettingsStore, useProviderStore, useUpdateStore } from "../../lib/stores";
 import type { Settings } from "../../lib/types";
 
-type SettingsTab = "general" | "providers" | "voice";
+type SettingsTab = "general" | "providers" | "voice" | "updates";
 
 export function SettingsPage() {
   const { settings, update } = useSettingsStore();
   const { accounts, add, remove, setActive } = useProviderStore();
+  const { status: updateStatus, currentVersion, latestVersion, check: checkUpdates } = useUpdateStore();
   const [tab, setTab] = useState<SettingsTab>("general");
   const [showAddKey, setShowAddKey] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
@@ -51,6 +52,15 @@ export function SettingsPage() {
     setShowAddKey(false);
   };
 
+  const updateStatusText: Record<string, string> = {
+    idle: "Not checked yet",
+    checking: "Checking...",
+    update_available: `Update available: v${latestVersion}`,
+    up_to_date: "Up to date",
+    offline: "Offline — unable to check",
+    error: "Check failed",
+  };
+
   return (
     <div className="settings-layout">
       <nav className="settings-nav">
@@ -72,6 +82,12 @@ export function SettingsPage() {
         >
           Voice
         </button>
+        <button
+          className={`settings-nav-item ${tab === "updates" ? "active" : ""}`}
+          onClick={() => setTab("updates")}
+        >
+          Updates
+        </button>
       </nav>
 
       <div className="settings-content">
@@ -80,18 +96,6 @@ export function SettingsPage() {
             <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 20 }}>General</h2>
             <div className="card">
               <div className="form-group">
-                <label className="form-label">Theme</label>
-                <select
-                  className="form-select"
-                  value={settings.general.theme}
-                  onChange={(e) => handleSaveGeneral("theme", e.target.value)}
-                >
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
-                  <option value="system">System</option>
-                </select>
-              </div>
-              <div className="form-group">
                 <label className="form-label">Language</label>
                 <select
                   className="form-select"
@@ -99,7 +103,6 @@ export function SettingsPage() {
                   onChange={(e) => handleSaveGeneral("language", e.target.value)}
                 >
                   <option value="en">English</option>
-                  <option value="ur">Urdu</option>
                 </select>
               </div>
             </div>
@@ -207,11 +210,12 @@ export function SettingsPage() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Voice</label>
+                <label className="form-label">Voice Name</label>
                 <input
                   className="form-input"
                   value={settings.voice.voice}
                   onChange={(e) => handleSaveVoice("voice", e.target.value)}
+                  placeholder="e.g. default"
                 />
               </div>
               <div className="form-group">
@@ -249,6 +253,40 @@ export function SettingsPage() {
                   onClick={() => handleSaveVoice("stt_enabled", !settings.voice.stt_enabled)}
                 />
               </div>
+            </div>
+          </>
+        )}
+
+        {tab === "updates" && (
+          <>
+            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 20 }}>Updates</h2>
+            <div className="card">
+              <div className="form-group">
+                <label className="form-label">Current Version</label>
+                <div style={{ fontSize: 14, color: "var(--text-primary)" }}>
+                  {currentVersion ? `v${currentVersion}` : "Unknown"}
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Update Status</label>
+                <div style={{ fontSize: 14, color: updateStatus === "update_available" ? "var(--accent)" : "var(--text-primary)" }}>
+                  {updateStatusText[updateStatus] || updateStatus}
+                </div>
+              </div>
+              {updateStatus === "update_available" && latestVersion && (
+                <div style={{ padding: 12, borderRadius: 8, background: "var(--accent-dim)", border: "1px solid var(--border-glow)", marginTop: 8 }}>
+                  <div style={{ fontSize: 13, color: "var(--accent)", marginBottom: 4 }}>New version available: v{latestVersion}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Run <code style={{ background: "var(--bg-hover)", padding: "2px 6px", borderRadius: 4 }}>luna update</code> to install</div>
+                </div>
+              )}
+              <button
+                className="btn btn-primary"
+                onClick={checkUpdates}
+                disabled={updateStatus === "checking"}
+                style={{ marginTop: 12 }}
+              >
+                {updateStatus === "checking" ? "Checking..." : "Check for Updates"}
+              </button>
             </div>
           </>
         )}

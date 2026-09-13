@@ -3,38 +3,6 @@ use base64::Engine;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VoiceConfig {
-    pub tts_enabled: bool,
-    pub stt_enabled: bool,
-    pub tts_provider: String,
-    pub stt_provider: String,
-    pub voice: String,
-    pub speed: f64,
-    pub volume: f64,
-    pub kokoro_endpoint: String,
-    pub sound_effects_enabled: bool,
-    pub master_volume: f64,
-}
-
-impl Default for VoiceConfig {
-    fn default() -> Self {
-        Self {
-            tts_enabled: false,
-            stt_enabled: false,
-            tts_provider: "kokoro".to_string(),
-            stt_provider: "whisper".to_string(),
-            voice: "default".to_string(),
-            speed: 1.0,
-            volume: 1.0,
-            kokoro_endpoint: "http://localhost:8880".to_string(),
-            sound_effects_enabled: true,
-            master_volume: 0.5,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TtsRequest {
     pub text: String,
@@ -61,15 +29,15 @@ pub struct SttResponse {
     pub confidence: Option<f64>,
 }
 
-#[allow(dead_code)]
 pub trait TtsProvider: Send + Sync {
+    #[allow(dead_code)]
     fn name(&self) -> &str;
     fn synthesize(&self, request: TtsRequest) -> impl std::future::Future<Output = Result<TtsResponse>> + Send;
     fn is_available(&self) -> impl std::future::Future<Output = bool> + Send;
 }
 
-#[allow(dead_code)]
 pub trait SttProvider: Send + Sync {
+    #[allow(dead_code)]
     fn name(&self) -> &str;
     fn transcribe(&self, request: SttRequest) -> impl std::future::Future<Output = Result<SttResponse>> + Send;
     fn is_available(&self) -> impl std::future::Future<Output = bool> + Send;

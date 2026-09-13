@@ -550,15 +550,6 @@ fn cmd_update() {
 }
 
 fn install_appimage(tmp: &std::path::Path, filename: &str) -> bool {
-    // Find current AppImage location
-    let _current_exe = match get_exe_path() {
-        Some(p) => p,
-        None => {
-            eprintln!("Cannot determine current executable path.");
-            return false;
-        }
-    };
-
     // If we're inside an AppImage, the parent is the mount point
     // The actual AppImage is at APPIMAGE env var or we look in common places
     let appimage_path = if let Ok(appimage) = std::env::var("APPIMAGE") {

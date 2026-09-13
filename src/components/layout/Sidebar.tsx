@@ -4,10 +4,12 @@ import { OrbStatus } from "../orb/OrbStatus";
 const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: "home", label: "Home", icon: "🏠" },
   { id: "chat", label: "Conversations", icon: "💬" },
+  { id: "models", label: "Models", icon: "🤖" },
   { id: "memory", label: "Memory", icon: "🧠" },
   { id: "activity", label: "Activity", icon: "📊" },
   { id: "permissions", label: "Tools", icon: "🔧" },
   { id: "api-catalog", label: "API Catalog", icon: "🌐" },
+  { id: "api-credentials", label: "Credentials", icon: "🔑" },
   { id: "settings", label: "Settings", icon: "⚙️" },
 ];
 
