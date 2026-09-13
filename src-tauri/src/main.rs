@@ -37,6 +37,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let app_dir = app
                 .path()
@@ -124,6 +125,11 @@ fn main() {
             commands::activity::create_activity_event,
             commands::activity::get_activity_events,
             commands::activity::update_activity_event,
+            commands::system::get_system_stats,
+            commands::voice::tts_speak,
+            commands::voice::stt_transcribe,
+            commands::voice::tts_check_availability,
+            commands::voice::stt_check_availability,
         ])
         .run(tauri::generate_context!())
         .expect("error while running luna");

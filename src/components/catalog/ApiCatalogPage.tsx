@@ -31,6 +31,7 @@ export function ApiCatalogPage() {
       loadStats();
       loadCategories();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSync = async () => {
@@ -60,6 +61,7 @@ export function ApiCatalogPage() {
       }
     }, 300);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, filterCategory, filterAuth]);
 
   return (

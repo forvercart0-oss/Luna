@@ -201,6 +201,7 @@ pub struct UpdateProviderAccount {
     pub name: Option<String>,
     pub api_key: Option<String>,
     pub base_url: Option<String>,
+    #[allow(dead_code)]
     pub is_active: Option<bool>,
 }
 
@@ -271,6 +272,7 @@ impl ProviderManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_active(&self, id: &str) -> Result<()> {
         self.db.execute("UPDATE provider_accounts SET is_active = 0", &[])?;
         self.db.execute(
@@ -307,6 +309,7 @@ impl ProviderManager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_key_by_id(&self, id: &str) -> Result<String> {
         self.db.query_row(
             "SELECT api_key_encrypted FROM provider_accounts WHERE id = ?1",

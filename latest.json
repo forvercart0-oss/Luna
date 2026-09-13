@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "notes": "LUNA v0.1.0 — Initial release",
+  "pub_date": "2026-09-13T00:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://github.com/forvercart0-oss/Luna/releases/download/v0.1.0/LUNA_0.1.0_x64-setup.exe",
+      "sha256": ""
+    },
+    "linux-x86_64": {
+      "url": "https://github.com/forvercart0-oss/Luna/releases/download/v0.1.0/LUNA_0.1.0_amd64.AppImage",
+      "sha256": ""
+    },
+    "darwin-x86_64": {
+      "url": "https://github.com/forvercart0-oss/Luna/releases/download/v0.1.0/LUNA_0.1.0_x64.app.tar.gz",
+      "sha256": ""
+    },
+    "darwin-aarch64": {
+      "url": "https://github.com/forvercart0-oss/Luna/releases/download/v0.1.0/LUNA_0.1.0_aarch64.app.tar.gz",
+      "sha256": ""
+    }
+  }
+}

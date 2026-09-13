@@ -39,12 +39,14 @@ pub struct Usage {
     pub total_tokens: i64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamDelta {
     pub role: Option<String>,
     pub content: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamChoice {
     pub index: i64,
@@ -52,12 +54,14 @@ pub struct StreamChoice {
     pub finish_reason: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamResponse {
     pub id: String,
     pub choices: Vec<StreamChoice>,
 }
 
+#[allow(dead_code)]
 pub trait AiProvider: Send + Sync {
     fn name(&self) -> &str;
     fn chat_completion(

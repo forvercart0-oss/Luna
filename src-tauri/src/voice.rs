@@ -3,6 +3,7 @@ use base64::Engine;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VoiceConfig {
     pub tts_enabled: bool,
@@ -60,12 +61,14 @@ pub struct SttResponse {
     pub confidence: Option<f64>,
 }
 
+#[allow(dead_code)]
 pub trait TtsProvider: Send + Sync {
     fn name(&self) -> &str;
     fn synthesize(&self, request: TtsRequest) -> impl std::future::Future<Output = Result<TtsResponse>> + Send;
     fn is_available(&self) -> impl std::future::Future<Output = bool> + Send;
 }
 
+#[allow(dead_code)]
 pub trait SttProvider: Send + Sync {
     fn name(&self) -> &str;
     fn transcribe(&self, request: SttRequest) -> impl std::future::Future<Output = Result<SttResponse>> + Send;

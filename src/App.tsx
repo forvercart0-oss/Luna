@@ -23,12 +23,15 @@ import {
   useCatalogStore,
   useCredentialStore,
   useActivityStore,
+  useAssistantStore,
 } from "./lib/stores";
 import type { Page } from "./lib/types";
 
 function App() {
   const [page, setPage] = useState<Page>("home");
   useSoundEffects();
+
+  const initAssistant = useAssistantStore((s) => s.init);
 
   const loadSettings = useSettingsStore((s) => s.load);
   const loadProviders = useProviderStore((s) => s.load);
@@ -44,6 +47,7 @@ function App() {
   const loadActivity = useActivityStore((s) => s.load);
 
   useEffect(() => {
+    initAssistant();
     loadSettings();
     loadProviders();
     loadModels();
@@ -56,7 +60,21 @@ function App() {
     loadCategories();
     loadCredentials();
     loadActivity();
-  }, []);
+  }, [
+    initAssistant,
+    loadSettings,
+    loadProviders,
+    loadModels,
+    loadConversations,
+    loadMemories,
+    loadPermissions,
+    loadAudit,
+    loadTools,
+    loadStats,
+    loadCategories,
+    loadCredentials,
+    loadActivity,
+  ]);
 
   const renderPage = () => {
     switch (page) {

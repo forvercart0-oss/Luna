@@ -408,7 +408,7 @@ struct RawApiEntry {
     url: String,
 }
 
-pub fn parse_public_apis_readme(content: &str) -> Result<Vec<RawApiEntry>> {
+fn parse_public_apis_readme(content: &str) -> Result<Vec<RawApiEntry>> {
     let mut entries = Vec::new();
     let mut current_category = String::new();
 

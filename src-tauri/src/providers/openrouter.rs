@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use futures_util::StreamExt;
+use futures_util::{StreamExt, stream::BoxStream};
 use reqwest::Client;
 use serde_json::Value;
 
@@ -25,6 +25,7 @@ impl OpenRouterProvider {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn chat_completion(
         &self,
         request: ChatCompletionRequest,
@@ -93,7 +94,7 @@ impl OpenRouterProvider {
         &self,
         request: ChatCompletionRequest,
         api_key: &str,
-    ) -> Result<impl futures_util::Stream<Item = Result<String>>> {
+    ) -> Result<BoxStream<'static, Result<String>>> {
         let url = format!("{}/chat/completions", self.base_url);
 
         let response = self
@@ -144,6 +145,6 @@ impl OpenRouterProvider {
             }
         });
 
-        Ok(stream)
+        Ok(stream.boxed())
     }
 }

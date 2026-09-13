@@ -107,11 +107,13 @@ export function ChatPage() {
     activeConversation,
     messages,
     sending,
+    streamingContent,
     create,
     remove,
     rename,
     setActive,
     sendMessage,
+    cancelGeneration,
   } = useConversationStore();
 
   const { profiles } = useModelStore();
@@ -125,7 +127,7 @@ export function ChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, toolExecutions]);
+  }, [messages, toolExecutions, streamingContent]);
 
   useEffect(() => {
     const active = profiles.find((p) => p.is_active);
@@ -141,6 +143,10 @@ export function ChatPage() {
       textareaRef.current.style.height = "auto";
     }
     await sendMessage(text, selectedModel || undefined);
+  };
+
+  const handleCancel = async () => {
+    await cancelGeneration();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -273,7 +279,45 @@ export function ChatPage() {
                   status={te.status}
                 />
               ))}
-              {sending && (
+              {sending && streamingContent && (
+                <div className="message message-assistant">
+                  <div className="message-bubble">
+                    <ReactMarkdown
+                      components={{
+                        code({ className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || "");
+                          const codeStr = String(children).replace(/\n$/, "");
+                          if (match) {
+                            return (
+                              <SyntaxHighlighter
+                                style={oneDark}
+                                language={match[1]}
+                                PreTag="div"
+                                customStyle={{ margin: "8px 0", borderRadius: "8px", fontSize: "13px" }}
+                              >
+                                {codeStr}
+                              </SyntaxHighlighter>
+                            );
+                          }
+                          return (
+                            <code
+                              className={className}
+                              style={{ background: "var(--bg-hover)", padding: "2px 6px", borderRadius: "4px", fontSize: "13px" }}
+                              {...props}
+                            >
+                              {children}
+                            </code>
+                          );
+                        },
+                      }}
+                    >
+                      {streamingContent}
+                    </ReactMarkdown>
+                    <span className="cursor-blink">|</span>
+                  </div>
+                </div>
+              )}
+              {sending && !streamingContent && (
                 <div className="message message-assistant">
                   <div className="message-bubble">
                     <div className="spinner" />
@@ -309,13 +353,23 @@ export function ChatPage() {
                   rows={1}
                 />
               </div>
-              <button
-                className="btn btn-primary"
-                onClick={handleSend}
-                disabled={!input.trim() || sending}
-              >
-                Send
-              </button>
+              {sending ? (
+                <button
+                  className="btn btn-danger"
+                  onClick={handleCancel}
+                  title="Stop generation"
+                >
+                  ■ Stop
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                >
+                  Send
+                </button>
+              )}
             </div>
           </>
         )}

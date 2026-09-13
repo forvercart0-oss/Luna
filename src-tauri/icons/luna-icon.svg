@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a2028"/>
+      <stop offset="100%" stop-color="#0b0e14"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00e0e0"/>
+      <stop offset="60%" stop-color="#00c8c8"/>
+      <stop offset="100%" stop-color="#008888"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softglow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="url(#bg)"/>
+
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#00c8c8" stroke-width="1.5" opacity="0.3"/>
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#00c8c8" stroke-width="0.8" opacity="0.15"/>
+
+  <!-- Orbital ring (tilted ellipse) -->
+  <ellipse cx="256" cy="256" rx="160" ry="60" fill="none" stroke="#00c8c8" stroke-width="2" opacity="0.5" transform="rotate(-20 256 256)" filter="url(#softglow)"/>
+  <ellipse cx="256" cy="256" rx="160" ry="60" fill="none" stroke="#00e0e0" stroke-width="1" opacity="0.25" transform="rotate(-20 256 256)"/>
+
+  <!-- Lunar crescent -->
+  <circle cx="230" cy="256" r="90" fill="none" stroke="#00c8c8" stroke-width="3" opacity="0.8" filter="url(#glow)"/>
+  <circle cx="260" cy="246" r="75" fill="url(#bg)"/>
+  <circle cx="230" cy="256" r="90" fill="none" stroke="#00e0e0" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- AI core (center dot) -->
+  <circle cx="256" cy="256" r="18" fill="url(#core)" filter="url(#glow)"/>
+  <circle cx="256" cy="256" r="10" fill="#00ffff" opacity="0.9"/>
+  <circle cx="256" cy="256" r="5" fill="#ffffff" opacity="0.8"/>
+
+  <!-- Orbital dot (small planet) -->
+  <circle cx="380" cy="220" r="6" fill="#00c8c8" filter="url(#softglow)"/>
+  <circle cx="380" cy="220" r="3" fill="#00ffff" opacity="0.8"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="256" y1="56" x2="256" y2="456" stroke="#00c8c8" stroke-width="0.5" opacity="0.08"/>
+  <line x1="56" y1="256" x2="456" y2="256" stroke="#00c8c8" stroke-width="0.5" opacity="0.08"/>
+
+  <!-- Corner accent marks -->
+  <path d="M 80 80 L 100 80 M 80 80 L 80 100" stroke="#00c8c8" stroke-width="1.5" opacity="0.3" fill="none"/>
+  <path d="M 432 80 L 412 80 M 432 80 L 432 100" stroke="#00c8c8" stroke-width="1.5" opacity="0.3" fill="none"/>
+  <path d="M 80 432 L 100 432 M 80 432 L 80 412" stroke="#00c8c8" stroke-width="1.5" opacity="0.3" fill="none"/>
+  <path d="M 432 432 L 412 432 M 432 432 L 432 412" stroke="#00c8c8" stroke-width="1.5" opacity="0.3" fill="none"/>
+</svg>

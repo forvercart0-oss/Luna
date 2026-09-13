@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type {
   Settings,
   ProviderAccount,
@@ -198,7 +199,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
   },
 }));
 
-// ── Conversation Store ──
+// ── Conversation Store (with streaming support) ──
 
 interface ConversationState {
   conversations: Conversation[];
@@ -206,6 +207,7 @@ interface ConversationState {
   messages: Message[];
   loading: boolean;
   sending: boolean;
+  streamingContent: string;
   loadConversations: () => Promise<void>;
   loadMessages: (conversationId: string) => Promise<void>;
   create: (title?: string) => Promise<string>;
@@ -213,120 +215,165 @@ interface ConversationState {
   rename: (id: string, title: string) => Promise<void>;
   setActive: (id: string | null) => void;
   sendMessage: (content: string, modelProfileId?: string) => Promise<void>;
+  cancelGeneration: () => Promise<void>;
+  cleanup: () => void;
 }
 
-export const useConversationStore = create<ConversationState>((set, get) => ({
-  conversations: [],
-  activeConversation: null,
-  messages: [],
-  loading: false,
-  sending: false,
-  loadConversations: async () => {
-    set({ loading: true });
-    try {
-      const conversations = await invoke<Conversation[]>("get_conversations");
-      set({ conversations, loading: false });
-    } catch (e) {
-      console.error("Failed to load conversations:", e);
-      set({ loading: false });
-    }
-  },
-  loadMessages: async (conversationId) => {
-    try {
-      const messages = await invoke<Message[]>("get_messages", { conversationId });
-      set({ messages });
-    } catch (e) {
-      console.error("Failed to load messages:", e);
-    }
-  },
-  create: async (title) => {
-    try {
-      const conv = await invoke<Conversation>("create_conversation", {
-        title: title || null,
-        modelProfileId: null,
-      });
-      await get().loadConversations();
-      set({ activeConversation: conv.id, messages: [] });
-      return conv.id;
-    } catch (e) {
-      console.error("Failed to create conversation:", e);
-      throw e;
-    }
-  },
-  remove: async (id) => {
-    try {
-      await invoke("delete_conversation", { id });
-      if (get().activeConversation === id) {
-        set({ activeConversation: null, messages: [] });
+export const useConversationStore = create<ConversationState>((set, get) => {
+  let unlistenStream: (() => void) | null = null;
+  let unlistenMessage: (() => void) | null = null;
+
+  const setupListeners = async () => {
+    if (unlistenStream) return;
+
+    unlistenStream = await listen<{ conversation_id: string; content: string; delta: string }>(
+      "chat:stream-chunk",
+      (event) => {
+        const { conversation_id, content } = event.payload;
+        if (conversation_id === get().activeConversation) {
+          set({ streamingContent: content });
+        }
       }
-      await get().loadConversations();
-    } catch (e) {
-      console.error("Failed to delete conversation:", e);
-    }
-  },
-  rename: async (id, title) => {
-    try {
-      await invoke("rename_conversation", { id, title });
-      await get().loadConversations();
-    } catch (e) {
-      console.error("Failed to rename conversation:", e);
-    }
-  },
-  setActive: (id) => {
-    set({ activeConversation: id });
-    if (id) {
-      get().loadMessages(id);
-    } else {
-      set({ messages: [] });
-    }
-  },
-  sendMessage: async (content, modelProfileId) => {
-    const { activeConversation } = get();
-    if (!activeConversation) return;
+    );
 
-    set({ sending: true });
+    unlistenMessage = await listen<Message>("chat:assistant-message", (event) => {
+      const msg = event.payload;
+      if (msg.conversation_id === get().activeConversation) {
+        set((state) => ({
+          messages: [...state.messages.filter((m) => m.id !== msg.id), msg],
+          streamingContent: "",
+          sending: false,
+        }));
+      }
+    });
+  };
 
-    const userMsg: Message = {
-      id: crypto.randomUUID(),
-      conversation_id: activeConversation,
-      role: "user",
-      content,
-      model_profile_id: modelProfileId || null,
-      status: "complete",
-      metadata: null,
-      created_at: new Date().toISOString(),
-    };
+  return {
+    conversations: [],
+    activeConversation: null,
+    messages: [],
+    loading: false,
+    sending: false,
+    streamingContent: "",
+    loadConversations: async () => {
+      set({ loading: true });
+      try {
+        const conversations = await invoke<Conversation[]>("get_conversations");
+        set({ conversations, loading: false });
+      } catch (e) {
+        console.error("Failed to load conversations:", e);
+        set({ loading: false });
+      }
+    },
+    loadMessages: async (conversationId) => {
+      try {
+        const messages = await invoke<Message[]>("get_messages", { conversationId });
+        set({ messages });
+      } catch (e) {
+        console.error("Failed to load messages:", e);
+      }
+    },
+    create: async (title) => {
+      try {
+        const conv = await invoke<Conversation>("create_conversation", {
+          title: title || null,
+          modelProfileId: null,
+        });
+        await get().loadConversations();
+        set({ activeConversation: conv.id, messages: [] });
+        return conv.id;
+      } catch (e) {
+        console.error("Failed to create conversation:", e);
+        throw e;
+      }
+    },
+    remove: async (id) => {
+      try {
+        await invoke("delete_conversation", { id });
+        if (get().activeConversation === id) {
+          set({ activeConversation: null, messages: [] });
+        }
+        await get().loadConversations();
+      } catch (e) {
+        console.error("Failed to delete conversation:", e);
+      }
+    },
+    rename: async (id, title) => {
+      try {
+        await invoke("rename_conversation", { id, title });
+        await get().loadConversations();
+      } catch (e) {
+        console.error("Failed to rename conversation:", e);
+      }
+    },
+    setActive: (id) => {
+      set({ activeConversation: id });
+      if (id) {
+        setupListeners();
+        get().loadMessages(id);
+      } else {
+        set({ messages: [] });
+      }
+    },
+    sendMessage: async (content, modelProfileId) => {
+      const { activeConversation } = get();
+      if (!activeConversation) return;
 
-    set((state) => ({ messages: [...state.messages, userMsg] }));
+      set({ sending: true });
 
-    try {
-      const response = await invoke<Message>("send_message", {
-        conversationId: activeConversation,
-        content,
-        modelProfileId: modelProfileId || null,
-      });
-      set((state) => ({
-        messages: [...state.messages.filter((m) => m.id !== userMsg.id), userMsg, response],
-      }));
-      await get().loadConversations();
-    } catch (e) {
-      console.error("Failed to send message:", e);
-      const errorMsg: Message = {
+      const userMsg: Message = {
         id: crypto.randomUUID(),
         conversation_id: activeConversation,
-        role: "assistant",
-        content: `Error: ${String(e)}`,
-        model_profile_id: null,
-        status: "error",
+        role: "user",
+        content,
+        model_profile_id: modelProfileId || null,
+        status: "complete",
         metadata: null,
         created_at: new Date().toISOString(),
       };
-      set((state) => ({ messages: [...state.messages, errorMsg] }));
-    } finally {
-      set({ sending: false });
-    }
-  },
-}));
+
+      set((state) => ({ messages: [...state.messages, userMsg] }));
+
+      try {
+        await invoke("send_message", {
+          conversationId: activeConversation,
+          content,
+          modelProfileId: modelProfileId || null,
+        });
+        await get().loadConversations();
+      } catch (e) {
+        console.error("Failed to send message:", e);
+        const errorMsg: Message = {
+          id: crypto.randomUUID(),
+          conversation_id: activeConversation,
+          role: "assistant",
+          content: `Error: ${String(e)}`,
+          model_profile_id: null,
+          status: "error",
+          metadata: null,
+          created_at: new Date().toISOString(),
+        };
+        set((state) => ({ messages: [...state.messages, errorMsg], sending: false }));
+      }
+    },
+    cancelGeneration: async () => {
+      const { activeConversation } = get();
+      if (!activeConversation) return;
+      try {
+        await invoke("cancel_generation", { conversationId: activeConversation });
+        set({ sending: false, streamingContent: "" });
+      } catch (e) {
+        console.error("Failed to cancel generation:", e);
+      }
+    },
+    cleanup: () => {
+      unlistenStream?.();
+      unlistenMessage?.();
+      unlistenStream = null;
+      unlistenMessage = null;
+    },
+  };
+});
 
 // ── Memory Store ──
 
@@ -765,6 +812,7 @@ interface AssistantStateStore {
   addToolExecution: (te: ToolExecution) => void;
   updateToolExecution: (id: string, updates: Partial<ToolExecution>) => void;
   clearToolExecutions: () => void;
+  init: () => void;
 }
 
 export const useAssistantStore = create<AssistantStateStore>((set) => ({
@@ -780,4 +828,38 @@ export const useAssistantStore = create<AssistantStateStore>((set) => ({
       ),
     })),
   clearToolExecutions: () => set({ toolExecutions: [] }),
+  init: () => {
+    listen<string>("luna:state-change", (event) => {
+      set({ state: event.payload as AssistantState });
+    });
+  },
+}));
+
+// ── System Stats Store ──
+
+export interface SystemStats {
+  cpu_usage: number | null;
+  memory_used_mb: number | null;
+  memory_total_mb: number | null;
+  disk_used_gb: number | null;
+  disk_total_gb: number | null;
+  hostname: string | null;
+  os: string | null;
+}
+
+interface SystemStatsState {
+  stats: SystemStats | null;
+  load: () => Promise<void>;
+}
+
+export const useSystemStatsStore = create<SystemStatsState>((set) => ({
+  stats: null,
+  load: async () => {
+    try {
+      const stats = await invoke<SystemStats>("get_system_stats");
+      set({ stats });
+    } catch (e) {
+      console.error("Failed to load system stats:", e);
+    }
+  },
 }));

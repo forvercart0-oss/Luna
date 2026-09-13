@@ -9,3 +9,5 @@ pub mod tools;
 pub mod catalog;
 pub mod credentials;
 pub mod activity;
+pub mod system;
+pub mod voice;

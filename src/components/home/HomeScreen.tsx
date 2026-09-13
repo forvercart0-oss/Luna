@@ -3,7 +3,14 @@ import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { OrbStatus } from "../orb/OrbStatus";
-import { useConversationStore, useModelStore, useActivityStore, useMemoryStore, useAssistantStore } from "../../lib/stores";
+import {
+  useConversationStore,
+  useModelStore,
+  useActivityStore,
+  useMemoryStore,
+  useAssistantStore,
+  useSystemStatsStore,
+} from "../../lib/stores";
 import type { Page } from "../../lib/types";
 
 interface HomeScreenProps {
@@ -11,6 +18,14 @@ interface HomeScreenProps {
 }
 
 function SystemStats() {
+  const { stats, load } = useSystemStatsStore();
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
+  }, [load]);
+
   return (
     <div className="panel-section">
       <div className="panel-header">
@@ -19,27 +34,37 @@ function SystemStats() {
       </div>
       <div className="system-stat">
         <div className="system-stat-label"><span className="system-stat-icon">⚡</span> CPU</div>
-        <div className="system-stat-value">—</div>
+        <div className="system-stat-value">
+          {stats?.cpu_usage != null ? `${stats.cpu_usage.toFixed(1)}%` : "—"}
+        </div>
       </div>
       <div className="system-stat">
         <div className="system-stat-label"><span className="system-stat-icon">💾</span> Memory</div>
-        <div className="system-stat-value">—</div>
+        <div className="system-stat-value">
+          {stats?.memory_used_mb != null && stats?.memory_total_mb != null
+            ? `${(stats.memory_used_mb / 1024).toFixed(1)}/${(stats.memory_total_mb / 1024).toFixed(1)} GB`
+            : "—"}
+        </div>
       </div>
       <div className="system-stat">
         <div className="system-stat-label"><span className="system-stat-icon">💿</span> Storage</div>
-        <div className="system-stat-value">—</div>
+        <div className="system-stat-value">
+          {stats?.disk_used_gb != null && stats?.disk_total_gb != null
+            ? `${stats.disk_used_gb.toFixed(1)}/${stats.disk_total_gb.toFixed(1)} GB`
+            : "—"}
+        </div>
       </div>
       <div className="system-stat">
-        <div className="system-stat-label"><span className="system-stat-icon">📶</span> Network</div>
-        <div className="system-stat-value">—</div>
+        <div className="system-stat-label"><span className="system-stat-icon">🖥</span> Host</div>
+        <div className="system-stat-value" style={{ fontSize: 11 }}>
+          {stats?.hostname || "—"}
+        </div>
       </div>
       <div className="system-stat">
-        <div className="system-stat-label"><span className="system-stat-icon">🔋</span> Battery</div>
-        <div className="system-stat-value">—</div>
-      </div>
-      <div className="system-stat">
-        <div className="system-stat-label"><span className="system-stat-icon">🎤</span> Microphone</div>
-        <div className="system-stat-value">—</div>
+        <div className="system-stat-label"><span className="system-stat-icon">🐧</span> OS</div>
+        <div className="system-stat-value" style={{ fontSize: 11 }}>
+          {stats?.os || "—"}
+        </div>
       </div>
     </div>
   );
@@ -117,8 +142,10 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
     activeConversation,
     messages,
     sending,
+    streamingContent,
     create,
     sendMessage,
+    cancelGeneration,
   } = useConversationStore();
   const { profiles } = useModelStore();
   const { state: assistantState } = useAssistantStore();
@@ -129,7 +156,7 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   useEffect(() => {
     const active = profiles.find((p) => p.is_active);
@@ -146,6 +173,10 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
       await create();
     }
     await sendMessage(text, selectedModel || undefined);
+  };
+
+  const handleCancel = async () => {
+    await cancelGeneration();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -235,7 +266,42 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
                 )}
               </div>
             ))}
-            {sending && (
+            {/* Streaming content */}
+            {sending && streamingContent && (
+              <div className="message-row assistant">
+                <div className="message-bubble">
+                  <ReactMarkdown
+                    components={{
+                      code({ className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || "");
+                        const codeStr = String(children).replace(/\n$/, "");
+                        if (match) {
+                          return (
+                            <SyntaxHighlighter
+                              style={oneDark}
+                              language={match[1]}
+                              PreTag="div"
+                              customStyle={{ margin: "6px 0", borderRadius: "6px", fontSize: "12px" }}
+                            >
+                              {codeStr}
+                            </SyntaxHighlighter>
+                          );
+                        }
+                        return (
+                          <code className={className} style={{ background: "var(--bg-hover)", padding: "2px 5px", borderRadius: "3px", fontSize: "12px" }} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {streamingContent}
+                  </ReactMarkdown>
+                  <span className="cursor-blink">|</span>
+                </div>
+              </div>
+            )}
+            {sending && !streamingContent && (
               <div className="message-row assistant">
                 <div className="message-bubble"><div className="spinner" /></div>
               </div>
@@ -257,15 +323,18 @@ export function HomeScreen({ onNavigate: _onNavigate }: HomeScreenProps) {
               rows={1}
             />
             <button className="composer-btn" title="Microphone">🎤</button>
-            <button className="composer-btn" title="Attach">📎</button>
-            <button
-              className="composer-send"
-              onClick={handleSend}
-              disabled={!input.trim() || sending}
-              title="Send"
-            >
-              ▶
-            </button>
+            {sending ? (
+              <button className="composer-send stop" onClick={handleCancel} title="Stop">■</button>
+            ) : (
+              <button
+                className="composer-send"
+                onClick={handleSend}
+                disabled={!input.trim()}
+                title="Send"
+              >
+                ▶
+              </button>
+            )}
           </div>
           <div className="composer-status">
             <div className="composer-status-item">

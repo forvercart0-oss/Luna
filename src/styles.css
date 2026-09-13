@@ -1179,6 +1179,29 @@ textarea.form-input {
   to { transform: rotate(360deg); }
 }
 
+/* ── Cursor Blink ── */
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* ── Composer Send Stop ── */
+
+.composer-send.stop {
+  background: var(--danger);
+  color: var(--text-inverse);
+}
+
+.composer-send.stop:hover {
+  background: #ff6666;
+}
+
 /* ── Model Selector ── */
 
 .model-selector {

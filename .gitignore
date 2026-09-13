@@ -4,7 +4,11 @@ target/
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
 .env
 .env.local
 .DS_Store
 Thumbs.db
+*.log
+src-tauri/gen/schemas/
+src-tauri/frontend/
